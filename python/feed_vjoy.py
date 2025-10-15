@@ -1,13 +1,65 @@
 # -*- coding: utf-8 -*-
-import json, socket, pyvjoy
+import json
+import socket
+import sys
+
+try:
+    import pyvjoy
+except ImportError:
+    print("[ERROR] pyvjoy not installed!")
+    print("Install with: pip install pyvjoy")
+    sys.exit(1)
 UDP=("127.0.0.1",5005)
-def map_axis(x): return int((x+1)*0.5*0x8000*2)   # [-1,1]→[0..65535]
-def map_throttle(x): return int(x*0x8000*2)       # [0,1] →[0..65535]
-j=pyvjoy.VJoyDevice(1)
-sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); sock.bind(UDP)
-print("[vJoy] Listening on", UDP)
-while True:
-    data,_=sock.recvfrom(2048); m=json.loads(data.decode())
-    j.set_axis(pyvjoy.HID_USAGE_X, map_axis(m["yaw"]))
-    j.set_axis(pyvjoy.HID_USAGE_Y, map_axis(m["altitude"]))
-    j.set_axis(pyvjoy.HID_USAGE_Z, map_throttle(m["speed"]))
+def map_axis(x):
+    """将 [-1, 1] 映射到 [0, 65535] 并防止溢出"""
+    val = (x + 1) * 0.5 * 65535
+    return max(0, min(65535, int(val)))
+def map_throttle(x):
+    """将 [0, 1] 映射到 [0, 65535] 并防止溢出"""
+    val = x * 65535
+    return max(0, min(65535, int(val)))
+def main():
+    # 检查 vJoy 驱动
+    try:
+        j = pyvjoy.VJoyDevice(1)
+        print("[OK] vJoy Device 1 connected")
+    except Exception as e:
+        print(f"[ERROR] vJoy driver not found: {e}")
+        print("\nPlease install vJoy:")
+        print("  1. Download from: https://sourceforge.net/projects/vjoystick/")
+        print("  2. Install the driver")
+        print("  3. Restart this script")
+        sys.exit(1)
+
+    # 绑定 UDP
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.bind(UDP)
+        print(f"[OK] Listening on {UDP}")
+    except OSError as e:
+        print(f"[ERROR] Failed to bind UDP port: {e}")
+        print("  - Try closing feed_uinput.py if running")
+        sys.exit(1)
+
+    print("[RUN] Waiting for BCI commands...")
+
+    try:
+        while True:
+            data, _ = sock.recvfrom(2048)
+            try:
+                m = json.loads(data.decode())
+                if not all(k in m for k in ["yaw", "altitude", "speed"]):
+                    continue
+                j.set_axis(pyvjoy.HID_USAGE_X, map_axis(m["yaw"]))
+                j.set_axis(pyvjoy.HID_USAGE_Y, map_axis(m["altitude"]))
+                j.set_axis(pyvjoy.HID_USAGE_Z, map_throttle(m["speed"]))
+            except json.JSONDecodeError:
+                continue
+    except KeyboardInterrupt:
+        print("\n[STOP] User interrupted")
+    finally:
+        sock.close()
+        print("[EXIT] Goodbye!")
+
+if __name__ == "__main__":
+    main()
