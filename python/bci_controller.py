@@ -186,3 +186,28 @@ def main():
             print(f"Yaw={yaw:+.2f} | Alt={alt:+.2f} | Spd={spd:.2f}", end="\r")
 
     except KeyboardInterrupt:
+print("\n" + "=" * 50)
+        print("[STOP] User interrupted")
+    
+    except Exception as e:
+        print("\n" + "=" * 50)
+        print(f"[ERROR] Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    finally:
+        # ============ 清理资源 ============
+        print("[CLEANUP] Releasing resources...")
+        if board:
+            try:
+                board.stop_stream()
+                board.release_session()
+                print("[OK] OpenBCI disconnected")
+            except:
+                pass
+        if sock:
+            sock.close()
+        print("[EXIT] Goodbye!")
+
+if __name__ == "__main__":
+    main()
