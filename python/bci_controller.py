@@ -1,17 +1,30 @@
 # -*- coding: utf-8 -*-
-import time, json, socket, math, os, yaml
+import time, json, socket, math, os, yaml, sys
 import numpy as np
 from brainflow import BoardShim, BrainFlowInputParams, BoardIds, DataFilter, FilterTypes, WindowFunctions
 
-CFG_MAP = "config/channel_map.json"
-CFG_SET = "config/settings.yaml"
+# 使用绝对路径
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CFG_MAP = os.path.join(BASE_DIR, "config", "channel_map.json")
+CFG_SET = os.path.join(BASE_DIR, "config", "settings.yaml")
 
 def load_cfg():
-    with open(CFG_MAP, "r", encoding="utf-8") as f:
-        m = json.load(f)
-    with open(CFG_SET, "r", encoding="utf-8") as f:
-        s = yaml.safe_load(f)
-    return m, s
+    """加载配置文件，包含错误处理"""
+    try:
+        with open(CFG_MAP, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        with open(CFG_SET, "r", encoding="utf-8") as f:
+            s = yaml.safe_load(f)
+        return m, s
+    except FileNotFoundError as e:
+        print(f"[ERROR] Config file not found: {e}")
+        print(f"[INFO] Expected paths:")
+        print(f"  - {CFG_MAP}")
+        print(f"  - {CFG_SET}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Failed to load config: {e}")
+        sys.exit(1)
 
 class Ewma:
     def __init__(self, a): self.a, self.y = a, None
@@ -28,7 +41,13 @@ def prep(sig, fs, notch, bp_lo, bp_hi):
     DataFilter.perform_bandpass(sig, fs, bp_lo, bp_hi, 4, FilterTypes.BUTTERWORTH.value, 0)
 
 def main():
-    chmap, cfg = load_cfg()
+    """主控制循环"""
+    board = None
+    sock = None
+    
+    try:
+        # 1. 加载配置
+        chmap, cfg = load_cfg()
     ports = chmap["serial_port"]
     chs = chmap["channels"]
     sr = cfg["sample_rate"]; notch = cfg["notch"]; bp_lo, bp_hi = cfg["bandpass"]
@@ -38,10 +57,25 @@ def main():
 
     MU=(8,12); BE=(13,30); AL=(8,12)
 
-    params = BrainFlowInputParams(); params.serial_port = ports
-    board = BoardShim(BoardIds.CYTON_BOARD.value, params)
-    BoardShim.enable_dev_board_logger()
-    board.prepare_session(); board.start_stream(45000)
+    # 2. 初始化 OpenBCI
+        print(f"[INFO] Connecting to OpenBCI on {ports}...")
+        params = BrainFlowInputParams()
+        params.serial_port = ports
+        board = BoardShim(BoardIds.CYTON_BOARD.value, params)
+        BoardShim.enable_dev_board_logger()
+        
+        try:
+            board.prepare_session()
+            board.start_stream(45000)
+            print("[OK] OpenBCI connected successfully")
+        except Exception as e:
+            print(f"[ERROR] OpenBCI connection failed: {e}")
+            print("[INFO] Troubleshooting:")
+            print(f"  - Check device is connected to {ports}")
+            print("  - Verify correct drivers are installed")
+            print("  - Close other programs using the port")
+            print("  - Try running with administrator/sudo privileges")
+            sys.exit(1)
     fs = BoardShim.get_sampling_rate(BoardIds.CYTON_BOARD.value)
     eeg = BoardShim.get_eeg_channels(BoardIds.CYTON_BOARD.value)
 
@@ -88,6 +122,27 @@ def main():
         sock.sendto(json.dumps(msg).encode(), udp_target)
         print(msg)
 
+except KeyboardInterrupt:
+        print("\n[STOP] User interrupted")
+    
+    except Exception as e:
+        print(f"\n[ERROR] Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    finally:
+        # 清理资源
+        print("[CLEANUP] Releasing resources...")
+        if board:
+            try:
+                board.stop_stream()
+                board.release_session()
+                print("[OK] OpenBCI disconnected")
+            except:
+                pass
+        if sock:
+            sock.close()
+        print("[EXIT] Goodbye!")
+
 if __name__ == "__main__":
-    try: main()
-    except KeyboardInterrupt: print("\n[EXIT] bye")
+    main()
