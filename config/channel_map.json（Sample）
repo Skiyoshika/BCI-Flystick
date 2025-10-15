@@ -1,0 +1,5 @@
+{
+  "serial_port": "COM3",
+  "board_id": "CYTON",
+  "channels": { "C3": 0, "C4": 1, "Cz": 2, "Oz": 7 }
+}
