@@ -122,7 +122,7 @@ Yaw	C3 / C4	μ, β	想象左/右手运动	向左/右转
 Altitude	Cz	μ, β	想象双脚用力蹬地	上升/下降
 Speed	Oz	α 或 SSVEP	集中/放松 或 注视闪烁点	加速/减速
 
- Project Structure | 项目结构
+## Project Structure | 项目结构
 bash
 复制代码
 bci-flystick/
@@ -131,16 +131,16 @@ bci-flystick/
 ├─ rust/           # UDP 接收/接口层
 ├─ scripts/        # 启动脚本
 └─ docs/           # 文档与实验笔记
- License
+##  License
 MIT License – Open-source, free to modify and distribute.
 你可以在学术研究、实验或教学中自由使用此项目。
 
- Contact
+##  Contact
 Author: @Skiyoshika
 Email: hiuramika122@gmail.com
 Keywords: Brain–Computer Interface, OpenBCI, EEG, Drone Control, vJoy, AirSim, PX4
 
- Acknowledgements
+##  Acknowledgements
 OpenBCI Cyton Board
 
 BrainFlow SDK
