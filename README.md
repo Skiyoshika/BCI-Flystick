@@ -6,7 +6,7 @@
 ## 🚀 Overview
 
 **BCI-Flystick** is an open-source framework that converts real-time EEG signals from the **OpenBCI Cyton** board into a **three-axis virtual joystick**.  
-It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** patterns to control yaw, altitude, and throttle, enabling brain-driven flight in drone simulators or robotic testbeds.
+It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** patterns to control yaw, altitude, and throttle, enabling brain-driven flight in drone simulators or robotic testbeds. 
 
 > • **Yaw (left/right rotation)** ← C3/C4 μβ lateralization  
 > • **Altitude (up/down)** ← Cz μβ ERD intensity  
