@@ -1,9 +1,9 @@
-# 🧠 BCI-Flystick  
+# BCI-Flystick  
 ### OpenBCI-based Real-Time EEG → Virtual Joystick Bridge for Drone & Flight Simulation Control
 
 ---
 
-## 🚀 Overview
+## Overview
 
 **BCI-Flystick** is an open-source framework that converts real-time EEG signals from the **OpenBCI Cyton** board into a **three-axis virtual joystick**.  
 It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** patterns to control yaw, altitude, and throttle, enabling brain-driven flight in drone simulators or robotic testbeds. 
@@ -14,20 +14,20 @@ It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** pattern
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 | Feature | Description |
 |----------|-------------|
-| 🎧 **EEG Acquisition** | Real-time data streaming from OpenBCI Cyton (8 channels) |
-| 🧮 **Signal Processing** | μ/β ERD for motor imagery and α/SSVEP for attention control |
-| 🎮 **Virtual Joystick Output** | vJoy (Windows) or uinput (Linux) creates a USB joystick device |
-| 🔗 **Simulator Integration** | Works with PX4 SITL + QGroundControl, Mission Planner, AirSim, VelociDrone |
-| 🧰 **Config-Driven Design** | JSON + YAML for channel mapping and parameter tuning |
-| ⚙️ **Extensible Architecture** | Python feature extraction + Rust receiver for low-latency control |
+| **EEG Acquisition** | Real-time data streaming from OpenBCI Cyton (8 channels) |
+| **Signal Processing** | μ/β ERD for motor imagery and α/SSVEP for attention control |
+| **Virtual Joystick Output** | vJoy (Windows) or uinput (Linux) creates a USB joystick device |
+| **Simulator Integration** | Works with PX4 SITL + QGroundControl, Mission Planner, AirSim, VelociDrone |
+| **Config-Driven Design** | JSON + YAML for channel mapping and parameter tuning |
+| **Extensible Architecture** | Python feature extraction + Rust receiver for low-latency control |
 
 ---
 
-## 🧩 System Architecture
+## System Architecture
 ```text
 EEG (C3, C4, Cz, Oz)
         ↓    
@@ -43,7 +43,7 @@ EEG (C3, C4, Cz, Oz)
         ↓       
  Drone Simulator / Game Engine
 ```
-## 🛠️ Installation & Setup
+## Installation & Setup
 1️⃣ Clone Repository
 ```bash
 git clone https://github.com/Skiyoshika/BCI-Flystick.git
@@ -85,8 +85,8 @@ sudo python python/feed_uinput.py
 ```
 A virtual joystick will appear and be recognized by QGroundControl / AirSim / Mission Planner.
 
-## 🕹️ Flight Simulation Integration
-**✈️ QGroundControl / PX4 SITL**
+## Flight Simulation Integration
+**QGroundControl / PX4 SITL**
 
 Bind axes:
 
@@ -98,15 +98,15 @@ Z → Throttle (Speed)
 
 Calibrate sensitivity & dead zones (recommended 5–10%).
 
-**🚁 Mission Planner (ArduPilot)**
+**Mission Planner (ArduPilot)**
 
 Enable Joystick Input and assign channels.
 
-**🕊️ AirSim / VelociDrone**
+**AirSim / VelociDrone**
 
 Select Controller / Joystick mode; vJoy/uinput is detected automatically.
 
-## 📂 Project Structure
+## Project Structure
 ```text
 
 bci-flystick/
@@ -116,19 +116,19 @@ bci-flystick/
 ├─ scripts/     # Quick start helpers
 └─ docs/        # Documentation and experiment notes
 ```
-## 📜 License
+## License
 MIT License – Open-source, free to modify and distribute.
 
 You may freely use this project for research, education, or development.
 
-## 📧 Contact
+## Contact
 **Author:** @Skiyoshika
 
 **Email:** hiuramika122@gmail.com
 
 **Keywords:** Brain–Computer Interface, OpenBCI, EEG, Drone Control, vJoy, AirSim, PX4
 
-## 🌟 Acknowledgements
+## Acknowledgements
 OpenBCI Cyton Board
 
 BrainFlow SDK
