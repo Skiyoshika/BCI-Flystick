@@ -1,0 +1,7 @@
+brainflow
+numpy
+scipy
+pyyaml
+pyvjoy; sys_platform == "win32"
+evdev; sys_platform == "linux"
+uinput; sys_platform == "linux"
