@@ -1,6 +1,6 @@
 sample_rate: 250
 bandpass: [1.0, 40.0]
-notch: 50.0     # US 改 60.0
+notch: 60.0
 window_sec: 1.0
 hop_sec: 0.5
 ewma_alpha: 0.3
