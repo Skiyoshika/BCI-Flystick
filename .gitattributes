@@ -1,0 +1,18 @@
+# ----- Language Stats -----
+# Tell GitHub Linguist how to classify project files
+*.py linguist-language=Python
+*.rs linguist-language=Rust
+*.sh linguist-language=Shell
+*.bat linguist-language=Batchfile
+*.json linguist-language=JSON
+*.yaml linguist-language=YAML
+
+# Exclude config/sample files from language statistics
+config/* linguist-detectable=false
+
+# Ensure line endings are consistent
+* text=auto eol=lf
+
+# Keep LICENSE and README counted as text
+LICENSE text
+README.md text
