@@ -1,0 +1,2 @@
+"""BCI-Flystick Python package."""
+

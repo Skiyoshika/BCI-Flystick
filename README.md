@@ -65,6 +65,23 @@ Edit config/channel_map.json:
   "channels": { "C3": 0, "C4": 1, "Cz": 2, "Oz": 7 }
 }
 ```
+
+> ✅ **配置校验**：启动时会验证 `channel_map.json` 与 `settings.yaml`，确保字段齐全且取值有效。`board_id` 支持 `CYTON`、`CYTON_DAISY`、`GANGLION` 与 `SYNTHETIC`（BrainFlow 仿真板）。
+
+`config/settings.yaml` 参数说明：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `sample_rate` | float | 期望采样率（用于配置一致性检查） |
+| `bandpass` | [float, float] | 带通滤波的低/高截止频率（Hz） |
+| `notch` | float | 陷波频率（Hz），典型值 50 或 60 |
+| `window_sec` / `hop_sec` | float | 时频分析窗口长度与步长（秒） |
+| `ewma_alpha` | float | 指数平滑系数，范围 [0,1] |
+| `dead_band` | float | 输出死区阈值 |
+| `gains` | dict | `yaw`、`altitude`、`speed` 三个增益 |
+| `calibration_sec` | float | 基线校准时长（秒） |
+| `udp_target` | [str, int] | 下游接收端的地址与端口 |
+
 4️⃣ Start Controller
 ```bash
 python python/bci_controller.py
@@ -84,6 +101,23 @@ python python/feed_vjoy.py
 sudo python python/feed_uinput.py
 ```
 A virtual joystick will appear and be recognized by QGroundControl / AirSim / Mission Planner.
+
+## 本地自检
+
+仓库提供如下自检命令：
+
+```bash
+# Python 语法检查
+python -m compileall python
+
+# Python 单元测试
+pytest
+
+# Rust UDP 接收端测试
+cargo test --manifest-path rust/bci_receiver/Cargo.toml
+```
+
+GitHub Actions 在 push / pull request 时会自动运行同样的流程，确保工作流可通过。
 
 ## Flight Simulation Integration
 **QGroundControl / PX4 SITL**

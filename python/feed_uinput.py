@@ -4,18 +4,18 @@ import socket
 import sys
 
 try:
-    import uinput
-except ImportError:
-    print("[ERROR] python-uinput not installed!")
-    print("Install with: pip install python-uinput")
-    sys.exit(1)
+    import uinput  # type: ignore
+except ImportError:  # pragma: no cover - tested via branch logic
+    uinput = None
+
+
+def _require_uinput() -> None:
+    if uinput is None:
+        print("[ERROR] python-uinput not installed!")
+        print("Install with: pip install python-uinput")
+        sys.exit(1)
 
 UDP = ("127.0.0.1", 5005)
-AX = [
-    uinput.ABS_X + (0, 65535, 0, 0),
-    uinput.ABS_Y + (0, 65535, 0, 0),
-    uinput.ABS_Z + (0, 65535, 0, 0)
-]
 
 def m01(x):
     return int(max(0, min(1, x)) * 65535)
@@ -24,6 +24,7 @@ def m11(x):
     return int((max(-1, min(1, x)) + 1) * 0.5 * 65535)
 
 def main():
+    _require_uinput()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.bind(UDP)
@@ -32,8 +33,14 @@ def main():
         print(f"[ERROR] Failed to bind: {e}")
         sys.exit(1)
 
+    axes = [
+        uinput.ABS_X + (0, 65535, 0, 0),
+        uinput.ABS_Y + (0, 65535, 0, 0),
+        uinput.ABS_Z + (0, 65535, 0, 0)
+    ]
+
     try:
-        with uinput.Device(AX, name="BCI-Flystick") as dev:
+        with uinput.Device(axes, name="BCI-Flystick") as dev:
             print("[OK] Virtual joystick created")
             while True:
                 try:

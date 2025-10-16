@@ -4,12 +4,18 @@ import socket
 import sys
 
 try:
-    import pyvjoy
-except ImportError:
-    print("[ERROR] pyvjoy not installed!")
-    print("Install with: pip install pyvjoy")
-    sys.exit(1)
-UDP=("127.0.0.1",5005)
+    import pyvjoy  # type: ignore
+except ImportError:  # pragma: no cover - tested via branch logic
+    pyvjoy = None
+
+
+def _require_pyvjoy() -> None:
+    if pyvjoy is None:
+        print("[ERROR] pyvjoy not installed!")
+        print("Install with: pip install pyvjoy")
+        sys.exit(1)
+UDP = ("127.0.0.1", 5005)
+
 def map_axis(x):
     """将 [-1, 1] 映射到 [0, 65535] 并防止溢出"""
     val = (x + 1) * 0.5 * 65535
@@ -19,6 +25,7 @@ def map_throttle(x):
     val = x * 65535
     return max(0, min(65535, int(val)))
 def main():
+    _require_pyvjoy()
     # 检查 vJoy 驱动
     try:
         j = pyvjoy.VJoyDevice(1)
