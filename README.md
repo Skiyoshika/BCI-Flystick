@@ -6,6 +6,7 @@
 ## Overview
 
 **BCI-Flystick** is an open-source framework that converts real-time EEG signals from the **OpenBCI Cyton** board into a **four-axis virtual joystick**.
+If you are looking for the Chinese-language manual, refer to the separate Chinese manual provided in the repository root.
 It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** patterns to control yaw, altitude, pitch and throttle, enabling brain-driven flight in drone simulators or robotic testbeds.
 
 > • **Yaw (left/right rotation)** ← C3/C4 μβ lateralization
@@ -90,7 +91,7 @@ The refreshed wizard first asks whether you want to start in **test mode** (simu
 Once a calibration exists, you can skip the wizard and launch `python -m python.main` directly. The launcher remembers the most recent profile but you can always pick a different one with `--config`.
 
 4️⃣ Configure Channels
-Edit config/channel_map.json:
+Edit `config/channel_map.json`:
 
 ```json
 {
@@ -100,21 +101,21 @@ Edit config/channel_map.json:
 }
 ```
 
-> ✅ **配置校验**：启动时会验证 `channel_map.json` 与 `settings.yaml`，确保字段齐全且取值有效。`board_id` 支持 `CYTON`、`CYTON_DAISY`、`GANGLION` 与 `SYNTHETIC`（BrainFlow 仿真板）。
+> ✅ **Configuration validation:** Startup verifies that `channel_map.json` and `settings.yaml` contain valid values. `board_id` accepts `CYTON`, `CYTON_DAISY`, `GANGLION`, and `SYNTHETIC` (BrainFlow simulated board).
 
-`config/settings.yaml` 参数说明：
+`config/settings.yaml` parameter reference:
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `sample_rate` | float | 期望采样率（用于配置一致性检查） |
-| `bandpass` | [float, float] | 带通滤波的低/高截止频率（Hz） |
-| `notch` | float | 陷波频率（Hz），典型值 50 或 60 |
-| `window_sec` / `hop_sec` | float | 时频分析窗口长度与步长（秒） |
-| `ewma_alpha` | float | 指数平滑系数，范围 [0,1] |
-| `dead_band` | float | 输出死区阈值 |
-| `gains` | dict | `yaw`、`altitude`、`pitch`、`throttle` 四个增益 |
-| `calibration_sec` | float | 基线校准时长（秒） |
-| `udp_target` | [str, int] | 下游接收端的地址与端口 |
+| Field | Type | Description |
+|-------|------|-------------|
+| `sample_rate` | float | Expected sampling rate (used for configuration consistency checks) |
+| `bandpass` | [float, float] | Low/high cut-off frequencies (Hz) for band-pass filtering |
+| `notch` | float | Notch frequency (Hz), typically 50 or 60 |
+| `window_sec` / `hop_sec` | float | Window length and hop size (seconds) for time-frequency analysis |
+| `ewma_alpha` | float | Exponential moving average factor in [0, 1] |
+| `dead_band` | float | Output dead-zone threshold |
+| `gains` | dict | Gains for `yaw`, `altitude`, `pitch`, and `throttle` |
+| `calibration_sec` | float | Baseline calibration duration (seconds) |
+| `udp_target` | [str, int] | Address and port of the downstream receiver |
 
 5️⃣ Launch the orchestrated runtime
 ```bash
@@ -125,39 +126,39 @@ python -m python.main
 python -m python.main --config config/user_profiles/my_profile.json
 
 # Useful overrides
-python -m python.main --mock           # 强制使用模拟 EEG 数据
-python -m python.main --no-dashboard   # 不启动终端摇杆仪表板
-python -m python.main --dashboard gui  # 直接启动图形化遥测窗口
+python -m python.main --mock           # Force mock EEG data
+python -m python.main --no-dashboard   # Disable the terminal joystick dashboard
+python -m python.main --dashboard gui  # Launch the graphical telemetry window directly
 ```
 `python.main` now starts the BrainFlow controller, the correct virtual joystick bridge (`feed_vjoy` or `feed_uinput`), and the selected telemetry dashboard (terminal or GUI) in one shot. If the active profile comes from the wizard's test mode, the launcher also spawns the `python.mock_command_gui` helper so you can emit simulated EEG actions with the keyboard while observing the FPV stick. Use `Ctrl+C` to stop all services—shutdown is coordinated automatically.
 
 6️⃣ Manual Startup (advanced / debugging)
 ```bash
-python python/bci_controller.py              # 连接真实硬件
-python python/bci_controller.py --mock       # 使用模拟 EEG
+python python/bci_controller.py              # Connect to real hardware
+python python/bci_controller.py --mock       # Use simulated EEG
 python python/feed_vjoy.py --host 0.0.0.0    # Windows vJoy
 sudo python python/feed_uinput.py            # Linux uinput
-python python/udp_dashboard.py               # 终端摇杆仪表板
-python python/udp_dashboard.py --once        # 接收首帧后自动退出
-python python/gui_dashboard.py               # 图形界面摇杆遥测
+python python/udp_dashboard.py               # Terminal joystick dashboard
+python python/udp_dashboard.py --once        # Exit after receiving the first frame
+python python/gui_dashboard.py               # Graphical joystick telemetry
 ```
 
-## 本地自检
+## Local Validation
 
-仓库提供如下自检命令：
+The repository offers the following self-check commands:
 
 ```bash
-# Python 语法检查
+# Python syntax check
 python -m compileall python
 
-# Python 单元测试
+# Python unit tests
 pytest
 
-# Rust UDP 接收端测试
+# Rust UDP receiver tests
 cargo test --manifest-path rust/bci_receiver/Cargo.toml
 ```
 
-GitHub Actions 在 push / pull request 时会自动运行同样的流程，确保工作流可通过。
+GitHub Actions runs the same workflow automatically on each push or pull request to ensure the pipeline stays green.
 
 ## Flight Simulation Integration
 **QGroundControl / PX4 SITL**
