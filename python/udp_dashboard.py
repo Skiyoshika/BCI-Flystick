@@ -64,6 +64,17 @@ def main(argv: list[str] | None = None) -> None:
     addr = (args.host, args.port)
     console.print(f"[bold cyan]Listening for UDP packets on {addr}[/bold cyan]")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 0)
+        except OSError:
+            pass
+    if hasattr(socket, "SO_REUSEPORT"):
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except OSError:
+            pass
     try:
         sock.bind(addr)
     except OSError as exc:  # pragma: no cover - dependent on environment

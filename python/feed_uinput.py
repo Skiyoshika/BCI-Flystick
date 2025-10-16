@@ -38,6 +38,17 @@ def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     _require_uinput()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 0)
+        except OSError:
+            pass
+    if hasattr(socket, "SO_REUSEPORT"):
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except OSError:
+            pass
     try:
         sock.bind((args.host, args.port))
         print(f"[OK] Listening on {(args.host, args.port)}")

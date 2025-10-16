@@ -56,6 +56,22 @@ def main(argv: list[str] | None = None) -> None:
 
     # 绑定 UDP
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # Allow multiple UDP consumers (e.g. dashboard + joystick bridge) to
+    # listen on the same localhost port when running on Windows. Without this
+    # Windows raises WinError 10048 as soon as the second process binds.
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+        # Ensure the more restrictive exclusive mode stays disabled so the
+        # reuse flag above takes effect on Windows.
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 0)
+        except OSError:
+            pass
+    if hasattr(socket, "SO_REUSEPORT"):
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except OSError:
+            pass
     try:
         sock.bind((args.host, args.port))
         print(f"[OK] Listening on {(args.host, args.port)}")
