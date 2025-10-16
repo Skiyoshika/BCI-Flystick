@@ -76,7 +76,9 @@ For non-technical Windows users, a minimal GUI installer is provided in
 [PyInstaller](https://pyinstaller.org/en/stable/) and run it to perform the
 first four setup steps (clone the repository, create the virtual environment,
 install dependencies and populate `config/channel_map.json`). The installer also
-offers to launch the guided setup wizard automatically.
+offers to launch the guided setup wizard automatically. The repository does not
+ship with a pre-built executable—run the following command locally to generate
+`dist/gui_installer.exe` whenever you need a fresh build.
 
 ```powershell
 # From a separate helper folder (outside the repository clone)
