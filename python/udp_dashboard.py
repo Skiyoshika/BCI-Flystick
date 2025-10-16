@@ -18,6 +18,8 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 5005
 
 console = Console()
+if not console.is_terminal:
+    console = Console(force_terminal=True)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
