@@ -1,0 +1,21 @@
+{
+  "language": "zh",
+  "profile_name": "mock_motor_imagery",
+  "mode": "test",
+  "control_backend": "vigem",
+  "udp_host": "127.0.0.1",
+  "udp_port": 5005,
+  "invert_pitch": false,
+  "throttle_scale": 1.0,
+  "mock_mode": true,
+  "launch_dashboard": true,
+  "dashboard_mode": "gui",
+  "calibration_profile": "config/calibration_profiles/mock_motor_imagery.json",
+  "axis_signs": {
+    "yaw": 1.0,
+    "altitude": 1.0,
+    "pitch": 1.0,
+    "throttle": 1.0
+  },
+  "notes": "Pre-baked synthetic motor imagery profile for Console button testing without hardware."
+}

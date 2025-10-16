@@ -1,0 +1,136 @@
+{
+  "mode": "test",
+  "profile": "mock_motor_imagery",
+  "created": 1728000000,
+  "sampling_hz": 250,
+  "channels": ["C3", "C4", "Cz", "Oz"],
+  "description": "Synthetic motor imagery calibration approximating eight joystick actions for console testing.",
+  "actions": [
+    {
+      "name": "accelerate",
+      "label": "Accelerate / 想象向前推进",
+      "axis": "throttle",
+      "direction": 1.0,
+      "duration": 3.5,
+      "binding": "W",
+      "imagery": {
+        "notes": "Right foot dorsiflexion imagery with sustained beta desynchronisation.",
+        "peak_microvolts": {
+          "Cz": 18.4,
+          "Oz": 6.2
+        }
+      }
+    },
+    {
+      "name": "decelerate",
+      "label": "Decelerate / 想象向后拖拽",
+      "axis": "throttle",
+      "direction": -1.0,
+      "duration": 3.2,
+      "binding": "S",
+      "imagery": {
+        "notes": "Bilateral foot imagery producing beta rebound and alpha recovery.",
+        "peak_microvolts": {
+          "Cz": -15.6,
+          "Oz": 9.1
+        }
+      }
+    },
+    {
+      "name": "turn_left",
+      "label": "Yaw Left / 想象左手抓杆",
+      "axis": "yaw",
+      "direction": -1.0,
+      "duration": 2.8,
+      "binding": "A",
+      "imagery": {
+        "notes": "Left hand grasp imagery generating μ rhythm ERD at C3.",
+        "peak_microvolts": {
+          "C3": -22.7,
+          "C4": 5.6
+        }
+      }
+    },
+    {
+      "name": "turn_right",
+      "label": "Yaw Right / 想象右手推杆",
+      "axis": "yaw",
+      "direction": 1.0,
+      "duration": 2.9,
+      "binding": "D",
+      "imagery": {
+        "notes": "Right hand push imagery with contralateral μ suppression.",
+        "peak_microvolts": {
+          "C3": 4.8,
+          "C4": -21.9
+        }
+      }
+    },
+    {
+      "name": "climb",
+      "label": "Climb / 想象抬升机身",
+      "axis": "altitude",
+      "direction": 1.0,
+      "duration": 3.0,
+      "binding": "Q",
+      "imagery": {
+        "notes": "Bilateral hand extension imagery evoking central ERD.",
+        "peak_microvolts": {
+          "C3": -17.3,
+          "C4": -16.4
+        }
+      }
+    },
+    {
+      "name": "descend",
+      "label": "Descend / 想象下压机身",
+      "axis": "altitude",
+      "direction": -1.0,
+      "duration": 3.1,
+      "binding": "E",
+      "imagery": {
+        "notes": "Hand flexion imagery with beta rebound and occipital alpha.",
+        "peak_microvolts": {
+          "C3": 11.8,
+          "C4": 12.5
+        }
+      }
+    },
+    {
+      "name": "pitch_up",
+      "label": "Pitch Up / 想象抬头",
+      "axis": "pitch",
+      "direction": 1.0,
+      "duration": 2.7,
+      "binding": "I",
+      "imagery": {
+        "notes": "Neck extension imagery with Cz μ ERD and Oz alpha drop.",
+        "peak_microvolts": {
+          "Cz": -19.6,
+          "Oz": -14.2
+        }
+      }
+    },
+    {
+      "name": "pitch_down",
+      "label": "Pitch Down / 想象俯冲",
+      "axis": "pitch",
+      "direction": -1.0,
+      "duration": 2.6,
+      "binding": "K",
+      "imagery": {
+        "notes": "Neck flexion imagery restoring baseline μ rhythm with mild occipital rebound.",
+        "peak_microvolts": {
+          "Cz": 13.5,
+          "Oz": 10.7
+        }
+      }
+    }
+  ],
+  "axis_signs": {
+    "yaw": 1.0,
+    "altitude": 1.0,
+    "pitch": 1.0,
+    "throttle": 1.0
+  }
+}
