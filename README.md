@@ -85,29 +85,27 @@ Edit config/channel_map.json:
 | `calibration_sec` | float | 基线校准时长（秒） |
 | `udp_target` | [str, int] | 下游接收端的地址与端口 |
 
-4️⃣ Start Controller
+4️⃣ One-Click Launch (Windows)
+```powershell
+scripts\start_windows.bat                   # 可附加 --mock、--duration 等参数
+```
+The batch script sets up the virtual environment (if needed), installs dependencies, then launches
+the controller, vJoy bridge and telemetry dashboard in dedicated consoles. Close the opened windows
+to stop all services.
+
+5️⃣ Manual Startup (Cross-Platform)
 ```bash
-python python/bci_controller.py             # 连接真实硬件
+python python/bci_controller.py              # 连接真实硬件
 # 离线调试：使用内置模拟器并在 N 秒后退出
 python python/bci_controller.py --mock --duration 30
 ```
 The system performs ~25 s baseline calibration, then streams Yaw / Altitude / Pitch / Throttle.
 
-5️⃣ Connect to Virtual Joystick
+**Windows (vJoy):** `python python/feed_vjoy.py`
 
-**Windows (vJoy):**
+**Linux (uinput):** `sudo python python/feed_uinput.py`
 
-```bash
-python python/feed_vjoy.py
-```
-**Linux (uinput):**
-
-```bash
-sudo python python/feed_uinput.py
-```
-A virtual joystick will appear and be recognized by QGroundControl / AirSim / Mission Planner.
-
-6️⃣ Visualise Command Telemetry
+6️⃣ Visualise Command Telemetry (manual mode)
 
 ```bash
 python python/udp_dashboard.py
