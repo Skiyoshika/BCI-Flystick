@@ -36,7 +36,8 @@ def main():
     axes = [
         uinput.ABS_X + (0, 65535, 0, 0),
         uinput.ABS_Y + (0, 65535, 0, 0),
-        uinput.ABS_Z + (0, 65535, 0, 0)
+        uinput.ABS_Z + (0, 65535, 0, 0),
+        uinput.ABS_RX + (0, 65535, 0, 0),
     ]
 
     try:
@@ -46,11 +47,16 @@ def main():
                 try:
                     data, _ = sock.recvfrom(2048)
                     m = json.loads(data.decode())
-                    if not all(k in m for k in ["yaw", "altitude", "speed"]):
+                    if not all(k in m for k in ["yaw", "altitude"]):
                         continue
+                    throttle = m.get("throttle")
+                    if throttle is None:
+                        throttle = 2 * float(m.get("speed", 0.0)) - 1.0
+                    pitch = float(m.get("pitch", 0.0))
                     dev.emit(uinput.ABS_X, m11(m["yaw"]), syn=False)
                     dev.emit(uinput.ABS_Y, m11(m["altitude"]), syn=False)
-                    dev.emit(uinput.ABS_Z, m01(m["speed"]), syn=True)
+                    dev.emit(uinput.ABS_Z, m11(throttle), syn=False)
+                    dev.emit(uinput.ABS_RX, m11(pitch), syn=True)
                 except json.JSONDecodeError:
                     continue
     except PermissionError:

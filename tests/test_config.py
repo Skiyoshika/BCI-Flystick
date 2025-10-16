@@ -34,7 +34,7 @@ def test_load_cfg_success(tmp_path: Path) -> None:
         "hop_sec": 0.5,
         "ewma_alpha": 0.3,
         "dead_band": 0.05,
-        "gains": {"yaw": 1.0, "altitude": 1.0, "speed": 1.0},
+        "gains": {"yaw": 1.0, "altitude": 1.0, "throttle": 1.0, "pitch": 1.0},
         "calibration_sec": 10,
         "udp_target": ["127.0.0.1", 6000],
     }
@@ -47,6 +47,8 @@ def test_load_cfg_success(tmp_path: Path) -> None:
     assert cfg["sample_rate"] == 250.0
     assert cfg["bandpass"] == (1.0, 40.0)
     assert cfg["udp_target"] == ("127.0.0.1", 6000)
+    assert cfg["gains"]["throttle"] == 1.0
+    assert cfg["gains"]["pitch"] == 1.0
 
 
 def test_resolve_board_id_alias() -> None:
@@ -67,7 +69,7 @@ def test_load_cfg_invalid_channels(tmp_path: Path) -> None:
         "hop_sec": 0.5,
         "ewma_alpha": 0.3,
         "dead_band": 0.05,
-        "gains": {"yaw": 1.0, "altitude": 1.0, "speed": 1.0},
+        "gains": {"yaw": 1.0, "altitude": 1.0, "throttle": 1.0, "pitch": 1.0},
         "calibration_sec": 10,
         "udp_target": ["127.0.0.1", 6000],
     }
@@ -101,3 +103,35 @@ def test_validate_settings_missing_gain(tmp_path: Path) -> None:
 
     with pytest.raises(SystemExit):
         load_cfg(map_path, settings_path)
+
+
+def test_load_cfg_speed_alias(tmp_path: Path) -> None:
+    map_cfg = {
+        "serial_port": "COM9",
+        "board_id": "CYTON",
+        "channels": {"C3": 0, "C4": 1, "Cz": 2, "Oz": 3},
+    }
+    settings_cfg = {
+        "sample_rate": 250,
+        "bandpass": [1.0, 40.0],
+        "notch": 50.0,
+        "window_sec": 1.0,
+        "hop_sec": 0.5,
+        "ewma_alpha": 0.3,
+        "dead_band": 0.05,
+        "gains": {"yaw": 1.0, "altitude": 1.0, "speed": 0.5, "pitch": 0.8},
+        "calibration_sec": 10,
+        "udp_target": ["127.0.0.1", 6000],
+    }
+
+    map_path, settings_path = _write_files(tmp_path, map_cfg, settings_cfg)
+    _, cfg = load_cfg(map_path, settings_path)
+    assert cfg["gains"]["throttle"] == 0.5
+    assert cfg["gains"]["pitch"] == 0.8
+
+    settings_cfg["gains"]["throttle"] = 1.2
+    settings_cfg["gains"].pop("speed")
+
+    map_path, settings_path = _write_files(tmp_path, map_cfg, settings_cfg)
+    _, cfg = load_cfg(map_path, settings_path)
+    assert cfg["gains"]["throttle"] == 1.2

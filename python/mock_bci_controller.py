@@ -13,13 +13,22 @@ while True:
     # 平滑正弦 + 少许噪声
     yaw = 0.8 * math.sin(2*math.pi*0.2*t) + random.uniform(-0.05, 0.05)        # [-1,1]
     alt = 0.6 * math.sin(2*math.pi*0.13*t + 1.1) + random.uniform(-0.05, 0.05) # [-1,1]
-    spd = 0.5 + 0.4 * (0.5*math.sin(2*math.pi*0.1*t + 2.2) + 0.5)               # [0,1]
+    pitch = 0.5 * math.sin(2*math.pi*0.17*t + 0.7) + random.uniform(-0.05, 0.05)
+    thr = 0.7 * math.sin(2*math.pi*0.11*t + 2.2) + random.uniform(-0.05, 0.05)
 
     yaw = max(-1.0, min(1.0, yaw))
     alt = max(-1.0, min(1.0, alt))
-    spd = max(0.0, min(1.0, spd))
+    pitch = max(-1.0, min(1.0, pitch))
+    thr = max(-1.0, min(1.0, thr))
 
-    msg = {"yaw": round(yaw,4), "altitude": round(alt,4), "speed": round(spd,4), "ts": time.time()}
+    msg = {
+        "yaw": round(yaw, 4),
+        "altitude": round(alt, 4),
+        "pitch": round(pitch, 4),
+        "throttle": round(thr, 4),
+        "speed": round((thr + 1.0) * 0.5, 4),
+        "ts": time.time(),
+    }
     sock.sendto(json.dumps(msg).encode("utf-8"), UDP_TARGET)
     print(msg)
     time.sleep(0.05)  # 20 Hz
