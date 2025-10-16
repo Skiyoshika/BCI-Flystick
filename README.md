@@ -69,6 +69,29 @@ bash scripts/bootstrap.sh --skip-git --upgrade-deps
 > or upgrade the virtualenv directly with `& .\.venv\Scripts\python.exe -m pip install --upgrade -r
 > python/requirements.txt`.
 
+1️⃣ Windows GUI installer
+
+For non-technical Windows users, a minimal GUI installer is provided in
+`scripts/gui_installer.py`. Package it into a standalone `.exe` with
+[PyInstaller](https://pyinstaller.org/en/stable/) and run it to perform the
+first four setup steps (clone the repository, create the virtual environment,
+install dependencies and populate `config/channel_map.json`). The installer also
+offers to launch the guided setup wizard automatically.
+
+```powershell
+# From a separate helper folder (outside the repository clone)
+pyinstaller --noconsole --onefile scripts/gui_installer.py
+dist\gui_installer.exe
+```
+
+The executable lets you pick the installation directory, serial port, board ID
+and EEG channel mapping. It will clone the repository into the selected
+directory, create or reuse `.venv`, install the Python requirements and then
+launch the wizard if requested.
+
+> ⚠️ The GUI installer still requires Git to be available in `PATH`. Install
+> [Git for Windows](https://gitforwindows.org/) before running the executable.
+
 1️⃣ Clone Repository (manual setup)
 ```bash
 git clone https://github.com/Skiyoshika/BCI-Flystick.git
