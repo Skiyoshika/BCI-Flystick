@@ -14,6 +14,8 @@ from typing import Any, Iterable
 
 DEFAULT_PROFILE_DIR = Path(__file__).resolve().parent.parent / "config" / "user_profiles"
 LAST_PROFILE_FILE = DEFAULT_PROFILE_DIR / ".last_profile"
+CALIBRATION_ENV_VAR = "BCI_FLYSTICK_CALIBRATION"
+MODE_ENV_VAR = "BCI_FLYSTICK_MODE"
 
 
 def load_profile(profile_path: Path) -> dict[str, Any]:
@@ -185,6 +187,14 @@ def main(argv: list[str] | None = None) -> int:
     remember_profile(profile_path)
 
     language = profile.get("language", "en")
+    profile_mode = str(profile.get("mode", "calibration")).strip().lower()
+    calibration_path_raw = profile.get("calibration_profile")
+    calibration_path: Path | None = None
+    if calibration_path_raw:
+        try:
+            calibration_path = Path(str(calibration_path_raw)).expanduser().resolve()
+        except (OSError, TypeError):
+            calibration_path = None
 
     print(_localise(language, "Loaded profile:", "已加载配置："))
     print(json.dumps(profile, indent=2, ensure_ascii=False))
@@ -203,6 +213,10 @@ def main(argv: list[str] | None = None) -> int:
     dashboard_mode = profile_dashboard_mode if launch_dashboard else "none"
     mock_mode = bool(profile.get("mock_mode", False))
 
+    if profile_mode == "test":
+        mock_mode = True
+        print(_localise(language, "Test mode: mock EEG enabled.", "测试模式：已启用模拟 EEG。"))
+
     if args.force_mock:
         mock_mode = True
     if args.force_hardware:
@@ -216,6 +230,11 @@ def main(argv: list[str] | None = None) -> int:
 
     env = os.environ.copy()
     env["BCI_FLYSTICK_PROFILE"] = str(profile_path.resolve())
+    if calibration_path:
+        env[CALIBRATION_ENV_VAR] = str(calibration_path)
+    else:
+        env.pop(CALIBRATION_ENV_VAR, None)
+    env[MODE_ENV_VAR] = profile_mode
 
     processes: list[ManagedProcess] = []
     try:
@@ -272,6 +291,26 @@ def main(argv: list[str] | None = None) -> int:
                 env=env,
             )
         )
+
+        if profile_mode == "test":
+            gui_cmd = [
+                sys.executable,
+                "-m",
+                "python.mock_command_gui",
+                "--host",
+                udp_host,
+                "--port",
+                str(udp_port),
+            ]
+            if calibration_path:
+                gui_cmd.extend(["--calibration", str(calibration_path)])
+            processes.append(
+                _spawn(
+                    "mock_command_gui",
+                    gui_cmd,
+                    env=env,
+                )
+            )
 
         if launch_dashboard and dashboard_mode == "terminal":
             processes.append(
