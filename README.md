@@ -75,6 +75,7 @@ pip install -r python/requirements.txt
 ```
 
 > ℹ️ **PowerShell Tip:** If PowerShell opens `Activate.ps1` in an editor instead of running it, make sure the command starts with the call operator `&` (for example `& .\.venv\Scripts\Activate.ps1`).
+
 3️⃣ Run the guided setup wizard (optional but recommended)
 ```bash
 python -m python.main --wizard               # Add --wizard-language zh for Chinese prompts
