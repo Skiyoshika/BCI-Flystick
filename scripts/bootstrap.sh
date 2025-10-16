@@ -7,6 +7,7 @@ REPO_URL="https://github.com/Skiyoshika/BCI-Flystick.git"
 TARGET_DIR="BCI-Flystick"
 RECREATE_VENV=false
 SKIP_GIT=false
+UPGRADE_DEPS=false
 
 usage() {
   cat <<'USAGE'
@@ -16,6 +17,7 @@ usage() {
   --repo <url>        指定要克隆的 Git 仓库地址 (默认: https://github.com/Skiyoshika/BCI-Flystick.git)
   --dir <path>        指定目标目录 (默认: BCI-Flystick)
   --recreate-venv     删除并重新创建 .venv 虚拟环境
+  --upgrade-deps      在保留虚拟环境的情况下升级依赖包
   --skip-git          跳过 git clone/pull 步骤，仅在当前目录下准备虚拟环境
   -h, --help          显示本帮助信息
 
@@ -38,6 +40,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --recreate-venv)
       RECREATE_VENV=true
+      shift
+      ;;
+    --upgrade-deps)
+      UPGRADE_DEPS=true
       shift
       ;;
     --skip-git)
@@ -100,6 +106,10 @@ source .venv/bin/activate
 pip install --upgrade pip
 
 echo "[3/3] 安装 Python 依赖..."
-pip install -r python/requirements.txt
+if [[ "$UPGRADE_DEPS" == true ]]; then
+  pip install --upgrade -r python/requirements.txt
+else
+  pip install -r python/requirements.txt
+fi
 
 echo "✅ 环境准备完成。"

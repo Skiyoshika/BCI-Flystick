@@ -75,19 +75,31 @@ def load_calibration(path: Path | None) -> tuple[Dict[str, float], Dict[str, Act
 
 
 class CommandSender:
-    def __init__(self, host: str, port: int, *, axis_signs: Dict[str, float]) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        *,
+        axis_signs: Dict[str, float],
+        echo: bool = False,
+    ) -> None:
         self.host = host
         self.port = port
         self.axis_signs = axis_signs
+        self.echo = echo
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def send(self, axes: Dict[str, float]) -> None:
+    def send(self, axes: Dict[str, float]) -> Dict[str, float]:
         payload = {"ts": time.time()}
         for axis in ("yaw", "altitude", "pitch", "throttle"):
             value = float(axes.get(axis, 0.0))
             payload[axis] = max(-1.0, min(1.0, value * self.axis_signs.get(axis, 1.0)))
         payload["speed"] = (payload["throttle"] + 1.0) * 0.5
-        self.socket.sendto(json.dumps(payload).encode("utf-8"), (self.host, self.port))
+        message = json.dumps(payload)
+        self.socket.sendto(message.encode("utf-8"), (self.host, self.port))
+        if self.echo:
+            print(f"Sent UDP payload: {message}")
+        return payload
 
 
 class MockEEGGui:
@@ -104,7 +116,12 @@ class MockEEGGui:
         self._ordered_actions = action_sequence
         self._build_ui()
         self._bind_keys()
-        self.last_label = tk.StringVar(value="Neutral")
+        self.last_label = tk.StringVar(
+            value=self._format_status(
+                "Neutral",
+                {axis: 0.0 for axis in ("yaw", "altitude", "pitch", "throttle")},
+            )
+        )
         self.status.configure(textvariable=self.last_label)
 
     def _build_ui(self) -> None:
@@ -146,12 +163,20 @@ class MockEEGGui:
             self._send_neutral()
 
     def _trigger(self, action: Action) -> None:
-        self.sender.send(action.payload())
-        self.last_label.set(f"Sent: {action.label}")
+        payload = self.sender.send(action.payload())
+        self.last_label.set(self._format_status(action.label, payload))
 
     def _send_neutral(self) -> None:
-        self.sender.send({})
-        self.last_label.set("Neutral")
+        payload = self.sender.send({})
+        self.last_label.set(self._format_status("Neutral", payload))
+
+    @staticmethod
+    def _format_status(label: str, payload: Dict[str, float]) -> str:
+        axes = []
+        for axis in ("yaw", "altitude", "pitch", "throttle"):
+            value = float(payload.get(axis, 0.0))
+            axes.append(f"{axis.title()}: {value:+.2f}")
+        return f"Sent: {label} | " + "  ".join(axes)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -159,6 +184,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--host", default=DEFAULT_HOST, help="UDP host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="UDP port (default: 5005)")
     parser.add_argument("--calibration", help="Optional calibration profile JSON path")
+    parser.add_argument(
+        "--echo",
+        action="store_true",
+        help="Print every UDP payload to the console for debugging",
+    )
     return parser.parse_args(argv)
 
 
@@ -182,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
                 name=name, label=label, axis=axis, direction=direction, binding=binding
             )
 
-    sender = CommandSender(args.host, args.port, axis_signs=axis_signs)
+    sender = CommandSender(args.host, args.port, axis_signs=axis_signs, echo=args.echo)
     root = tk.Tk()
     app = MockEEGGui(root, sender, actions.values())
     try:
