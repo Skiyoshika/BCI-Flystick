@@ -55,9 +55,13 @@ cd BCI-Flystick
 2️⃣ Setup Python Environment
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate                # macOS / Linux
+& .\.venv\Scripts\Activate.ps1          # Windows PowerShell
+\\.venv\Scripts\activate.bat           # Windows CMD
 pip install -r python/requirements.txt
 ```
+
+> ℹ️ **PowerShell Tip:** If PowerShell opens `Activate.ps1` in an editor instead of running it, make sure the command starts with the call operator `&` (for example `& .\.venv\Scripts\Activate.ps1`).
 3️⃣ Run the guided setup wizard (optional but recommended)
 ```bash
 python -m python.main --wizard               # Add --wizard-language zh for Chinese prompts
