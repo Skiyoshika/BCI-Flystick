@@ -47,7 +47,19 @@ EEG (C3, C4, Cz, Oz)
  Drone Simulator / Game Engine
 ```
 ## Installation & Setup
-1️⃣ Clone Repository
+0️⃣ One-command bootstrap (optional)
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Skiyoshika/BCI-Flystick/main/scripts/bootstrap.sh)
+```
+The bootstrap script clones (or updates) the repository, creates the `.venv` virtual environment and installs the Python requirements in a single step. Run it without `curl` if you already have the repository locally:
+
+```bash
+git clone https://github.com/Skiyoshika/BCI-Flystick.git
+cd BCI-Flystick
+bash scripts/bootstrap.sh --skip-git
+```
+
+1️⃣ Clone Repository (manual setup)
 ```bash
 git clone https://github.com/Skiyoshika/BCI-Flystick.git
 cd BCI-Flystick
