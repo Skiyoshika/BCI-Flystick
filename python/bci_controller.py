@@ -34,6 +34,7 @@ import yaml
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CFG_MAP = os.path.join(BASE_DIR, "config", "channel_map.json")
 CFG_SET = os.path.join(BASE_DIR, "config", "settings.yaml")
+PROFILE_ENV_VAR = "BCI_FLYSTICK_PROFILE"
 
 
 class ConfigError(RuntimeError):
@@ -188,6 +189,33 @@ def load_cfg(map_path: str = CFG_MAP, settings_path: str = CFG_SET) -> Tuple[Dic
 
     return chmap, settings
 
+
+def load_runtime_profile() -> Dict[str, Any]:
+    """Load optional runtime overrides provided by the setup wizard profile."""
+
+    profile_path = os.environ.get(PROFILE_ENV_VAR)
+    if not profile_path:
+        return {}
+
+    try:
+        with open(profile_path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except FileNotFoundError:
+        print(f"[WARN] Profile path from {PROFILE_ENV_VAR} not found: {profile_path}")
+        return {}
+    except json.JSONDecodeError as exc:
+        print(f"[WARN] Failed to parse profile overrides: {exc}")
+        return {}
+    except Exception as exc:  # pragma: no cover - unexpected environment issues
+        print(f"[WARN] Unexpected error loading profile overrides: {exc}")
+        return {}
+
+    if not isinstance(data, dict):
+        print("[WARN] Profile overrides must be a JSON object, ignoring.")
+        return {}
+
+    return data
+
 class Ewma:
     """指数加权移动平均滤波器"""
     def __init__(self, a):
@@ -328,6 +356,19 @@ def main(argv: list[str] | None = None) -> None:
         if args.udp_port:
             udp_target = (udp_target[0], args.udp_port)
 
+        runtime_profile = load_runtime_profile()
+        invert_pitch = bool(runtime_profile.get("invert_pitch", False))
+        throttle_scale_raw = runtime_profile.get("throttle_scale", 1.0)
+        try:
+            throttle_scale = float(throttle_scale_raw)
+        except (TypeError, ValueError):
+            throttle_scale = 1.0
+        throttle_scale = float(max(0.1, min(5.0, throttle_scale)))
+        if abs(throttle_scale - 1.0) > 1e-6 or invert_pitch:
+            print(
+                f"[PROFILE] Overrides → invert_pitch={invert_pitch}, throttle_scale={throttle_scale:.2f}"
+            )
+
         MU = (8, 12)   # Mu 频段
         BE = (13, 30)  # Beta 频段
         AL = (8, 12)   # Alpha 频段
@@ -454,11 +495,15 @@ def main(argv: list[str] | None = None) -> None:
             alt = clamp(gains["altitude"] * sAlt.step(erd))
 
             pitch_raw = (cz_beta - B_CZ_BE) / (B_CZ_BE + 1e-9) - (cz_mu - B_CZ_MU) / (B_CZ_MU + 1e-9)
-            pitch = clamp(gains["pitch"] * sPit.step(pitch_raw))
+            pitch_value = gains["pitch"] * sPit.step(pitch_raw)
+            if invert_pitch:
+                pitch_value *= -1.0
+            pitch = clamp(pitch_value)
 
             oz_alpha = bandpower(oz, fs, *AL)
             thr_raw = (B_OZ - oz_alpha) / (B_OZ + 1e-9)
-            throttle = clamp(gains["throttle"] * sThr.step(thr_raw))
+            throttle_value = gains["throttle"] * sThr.step(thr_raw) * throttle_scale
+            throttle = clamp(throttle_value)
 
             if abs(yaw) < dead:
                 yaw = 0.0

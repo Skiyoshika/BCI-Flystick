@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
+import argparse
 import json
 import socket
 import sys
@@ -15,7 +18,15 @@ def _require_uinput() -> None:
         print("Install with: pip install python-uinput")
         sys.exit(1)
 
-UDP = ("127.0.0.1", 5005)
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 5005
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Bridge BCI UDP commands into a Linux uinput joystick")
+    parser.add_argument("--host", default=DEFAULT_HOST, help="UDP host to bind (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="UDP port to bind (default: 5005)")
+    return parser.parse_args(argv)
 
 def m01(x):
     return int(max(0, min(1, x)) * 65535)
@@ -23,12 +34,13 @@ def m01(x):
 def m11(x):
     return int((max(-1, min(1, x)) + 1) * 0.5 * 65535)
 
-def main():
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     _require_uinput()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        sock.bind(UDP)
-        print(f"[OK] Listening on {UDP}")
+        sock.bind((args.host, args.port))
+        print(f"[OK] Listening on {(args.host, args.port)}")
     except OSError as e:
         print(f"[ERROR] Failed to bind: {e}")
         sys.exit(1)

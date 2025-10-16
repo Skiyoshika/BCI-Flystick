@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
+import argparse
 import json
 import socket
 import sys
@@ -14,7 +17,16 @@ def _require_pyvjoy() -> None:
         print("[ERROR] pyvjoy not installed!")
         print("Install with: pip install pyvjoy")
         sys.exit(1)
-UDP = ("127.0.0.1", 5005)
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 5005
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Bridge BCI UDP commands into a vJoy/ViGEm device")
+    parser.add_argument("--host", default=DEFAULT_HOST, help="UDP host to bind (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="UDP port to bind (default: 5005)")
+    parser.add_argument("--device-id", type=int, default=1, help="vJoy device ID to control (default: 1)")
+    return parser.parse_args(argv)
 
 def map_axis(x: float) -> int:
     """将 [-1, 1] 映射到 [0, 65535] 并防止溢出"""
@@ -27,12 +39,13 @@ def map_throttle(x: float) -> int:
     """将 [-1, 1] 映射到 [0, 65535] 并防止溢出"""
 
     return map_axis(x)
-def main():
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     _require_pyvjoy()
     # 检查 vJoy 驱动
     try:
-        j = pyvjoy.VJoyDevice(1)
-        print("[OK] vJoy Device 1 connected")
+        j = pyvjoy.VJoyDevice(args.device_id)
+        print(f"[OK] vJoy Device {args.device_id} connected")
     except Exception as e:
         print(f"[ERROR] vJoy driver not found: {e}")
         print("\nPlease install vJoy:")
@@ -44,8 +57,8 @@ def main():
     # 绑定 UDP
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        sock.bind(UDP)
-        print(f"[OK] Listening on {UDP}")
+        sock.bind((args.host, args.port))
+        print(f"[OK] Listening on {(args.host, args.port)}")
     except OSError as e:
         print(f"[ERROR] Failed to bind UDP port: {e}")
         print("  - Try closing feed_uinput.py if running")
