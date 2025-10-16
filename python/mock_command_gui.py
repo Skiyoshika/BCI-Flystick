@@ -6,10 +6,11 @@ import json
 import socket
 import time
 import tkinter as tk
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from tkinter import ttk
-from typing import Dict, Iterable
+from typing import Dict, Iterable, List
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 5005
@@ -28,6 +29,30 @@ class Action:
         if self.axis == "throttle":
             axes.setdefault("speed", (value + 1.0) * 0.5)
         return axes
+
+
+@dataclass(slots=True)
+class SmoothAxisState:
+    value: float = 0.0
+    target: float = 0.0
+
+    def reset(self) -> None:
+        self.value = 0.0
+        self.target = 0.0
+
+    def step(self, rate_per_sec: float, dt: float) -> bool:
+        diff = self.target - self.value
+        if abs(diff) <= 1e-6:
+            return False
+        step = min(abs(diff), rate_per_sec * dt)
+        if step <= 0:
+            return False
+        direction = 1.0 if diff > 0 else -1.0
+        new_value = self.value + step * direction
+        new_value = max(-1.0, min(1.0, new_value))
+        changed = abs(new_value - self.value) > 1e-6
+        self.value = new_value
+        return changed
 
 
 def load_calibration(path: Path | None) -> tuple[Dict[str, float], Dict[str, Action]]:
@@ -114,15 +139,30 @@ class MockEEGGui:
         action_sequence = list(actions)
         self.actions: Dict[str, Action] = {action.name: action for action in action_sequence}
         self._ordered_actions = action_sequence
+        self._axes = ("yaw", "altitude", "pitch", "throttle")
         self._build_ui()
+        self._binding_map: Dict[str, Action] = {}
+        for action in self._ordered_actions:
+            if action.binding:
+                self._binding_map[action.binding.upper()] = action
         self._bind_keys()
         self.last_label = tk.StringVar(
             value=self._format_status(
                 "Neutral",
-                {axis: 0.0 for axis in ("yaw", "altitude", "pitch", "throttle")},
+                {axis: 0.0 for axis in self._axes},
             )
         )
         self.status.configure(textvariable=self.last_label)
+        self._axis_states: Dict[str, SmoothAxisState] = {
+            axis: SmoothAxisState() for axis in self._axes
+        }
+        self._axis_action_stack: Dict[str, List[Action]] = {axis: [] for axis in self._axes}
+        self._pressed_keys: set[str] = set()
+        self._current_label = "Neutral"
+        self._sample_history: deque[Dict[str, float]] = deque()
+        self._sample_counter = 0
+        self._update_interval_ms = 50
+        self._schedule_next_tick()
 
     def _build_ui(self) -> None:
         self.root.title("BCI Flystick Mock EEG Console")
@@ -143,31 +183,89 @@ class MockEEGGui:
             text = action.label
             if action.binding:
                 text = f"{text} ({action.binding})"
-            button = ttk.Button(container, text=text, command=lambda a=action: self._trigger(a))
+            button = ttk.Button(container, text=text)
             button.grid(row=row, column=0, columnspan=2, sticky="ew", pady=4)
+            button.bind("<ButtonPress-1>", lambda _event, a=action: self._on_action_press(a))
+            button.bind("<ButtonRelease-1>", lambda _event, a=action: self._on_action_release(a))
             row += 1
+
+        self._sensitivity_var = tk.IntVar(value=5)
+        self._sensitivity_label = tk.StringVar()
+        self._update_sensitivity_label()
+        ttk.Label(container, text="Sensitivity").grid(row=row, column=0, sticky="w", pady=(12, 0))
+        scale = tk.Scale(
+            container,
+            from_=1,
+            to=10,
+            orient="horizontal",
+            variable=self._sensitivity_var,
+            resolution=1,
+            showvalue=False,
+            command=lambda _value: self._update_sensitivity_label(),
+        )
+        scale.grid(row=row, column=1, sticky="ew", pady=(12, 0))
+        row += 1
+        ttk.Label(container, textvariable=self._sensitivity_label, anchor="e").grid(
+            row=row, column=0, columnspan=2, sticky="ew"
+        )
+        row += 1
 
         self.status = ttk.Label(container, text="", anchor="w")
         self.status.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
 
     def _bind_keys(self) -> None:
-        self.root.bind("<KeyPress>", self._on_key)
+        self.root.bind("<KeyPress>", self._on_key_press)
+        self.root.bind("<KeyRelease>", self._on_key_release)
 
-    def _on_key(self, event: tk.Event[tk.KeyPressEvent]) -> None:
+    def _on_key_press(self, event: tk.Event[tk.KeyPressEvent]) -> None:
         key = event.keysym.upper()
-        for action in self._ordered_actions:
-            if action.binding and action.binding.upper() == key:
-                self._trigger(action)
-                return
+        if key in self._pressed_keys:
+            return
+        self._pressed_keys.add(key)
+        action = self._binding_map.get(key)
+        if action:
+            self._on_action_press(action)
+            return
         if key in {"SPACE", "0"}:
             self._send_neutral()
 
-    def _trigger(self, action: Action) -> None:
-        payload = self.sender.send(action.payload())
-        self.last_label.set(self._format_status(action.label, payload))
+    def _on_key_release(self, event: tk.Event[tk.KeyPressEvent]) -> None:
+        key = event.keysym.upper()
+        self._pressed_keys.discard(key)
+        action = self._binding_map.get(key)
+        if action:
+            self._on_action_release(action)
+
+    def _on_action_press(self, action: Action) -> None:
+        stack = self._axis_action_stack[action.axis]
+        if action not in stack:
+            stack.append(action)
+        active = stack[-1]
+        self._axis_states[action.axis].target = 1.0 if active.direction >= 0 else -1.0
+        self._current_label = active.label
+
+    def _on_action_release(self, action: Action) -> None:
+        stack = self._axis_action_stack[action.axis]
+        if action in stack:
+            stack.remove(action)
+        if stack:
+            active = stack[-1]
+            self._axis_states[action.axis].target = 1.0 if active.direction >= 0 else -1.0
+            self._current_label = active.label
+        else:
+            self._axis_states[action.axis].target = 0.0
+            if not any(self._axis_action_stack.values()):
+                self._current_label = "Neutral"
 
     def _send_neutral(self) -> None:
-        payload = self.sender.send({})
+        self._pressed_keys.clear()
+        for axis in self._axes:
+            self._axis_action_stack[axis].clear()
+            state = self._axis_states[axis]
+            state.reset()
+        self._current_label = "Neutral"
+        payload = self.sender.send({axis: 0.0 for axis in self._axes})
+        self._record_sample(payload)
         self.last_label.set(self._format_status("Neutral", payload))
 
     @staticmethod
@@ -177,6 +275,33 @@ class MockEEGGui:
             value = float(payload.get(axis, 0.0))
             axes.append(f"{axis.title()}: {value:+.2f}")
         return f"Sent: {label} | " + "  ".join(axes)
+
+    def _schedule_next_tick(self) -> None:
+        self.root.after(self._update_interval_ms, self._tick)
+
+    def _tick(self) -> None:
+        dt = self._update_interval_ms / 1000.0
+        sensitivity = max(1, int(self._sensitivity_var.get()))
+        rate = 0.05 * sensitivity
+        changed = False
+        for axis, state in self._axis_states.items():
+            changed = state.step(rate, dt) or changed
+        if changed:
+            payload = self.sender.send({axis: state.value for axis, state in self._axis_states.items()})
+            self._record_sample(payload)
+            self.last_label.set(self._format_status(self._current_label, payload))
+        self._schedule_next_tick()
+
+    def _record_sample(self, payload: Dict[str, float]) -> None:
+        self._sample_history.append(payload)
+        self._sample_counter += 1
+        if self._sample_counter >= 100:
+            self._sample_history.clear()
+            self._sample_counter = 0
+
+    def _update_sensitivity_label(self) -> None:
+        value = max(1, int(self._sensitivity_var.get()))
+        self._sensitivity_label.set(f"Current level: {value}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
