@@ -58,6 +58,9 @@ The bootstrap script clones (or updates) the repository, creates the `.venv` vir
 git clone https://github.com/Skiyoshika/BCI-Flystick.git
 cd BCI-Flystick
 bash scripts/bootstrap.sh --skip-git
+
+# Refresh dependencies in an existing checkout without recreating the venv
+bash scripts/bootstrap.sh --skip-git --upgrade-deps
 ```
 
 1️⃣ Clone Repository (manual setup)
@@ -72,6 +75,9 @@ source .venv/bin/activate                # macOS / Linux
 & .\.venv\Scripts\Activate.ps1          # Windows PowerShell
 \\.venv\Scripts\activate.bat           # Windows CMD
 pip install -r python/requirements.txt
+
+# Later updates inside the virtualenv
+pip install --upgrade -r python/requirements.txt
 ```
 
 > ℹ️ **PowerShell Tip:** If PowerShell opens `Activate.ps1` in an editor instead of running it, make sure the command starts with the call operator `&` (for example `& .\.venv\Scripts\Activate.ps1`).
@@ -143,6 +149,28 @@ python python/udp_dashboard.py               # Terminal joystick dashboard
 python python/udp_dashboard.py --once        # Exit after receiving the first frame
 python python/gui_dashboard.py               # Graphical joystick telemetry
 ```
+
+### Hardware-free console test pack
+
+If the telemetry dashboard stays idle because no EEG packets arrive, load the
+pre-generated mock motor imagery profile and trigger commands from the Console
+window:
+
+```bash
+python -m python.main --config config/user_profiles/mock_motor_imagery.json
+```
+
+The launcher will open the GUI dashboard together with `python.mock_command_gui`.
+Each button press now updates the dashboard and prints the effective joystick
+axes in the Console footer. When you need additional confirmation, launch the
+Console with `--echo` to mirror every UDP packet:
+
+```bash
+python -m python.mock_command_gui --calibration config/calibration_profiles/mock_motor_imagery.json --echo
+```
+
+This lets you verify axis movement even on systems where vJoy/uinput is not yet
+active.
 
 ## Local Validation
 
