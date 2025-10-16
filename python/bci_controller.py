@@ -15,7 +15,7 @@ import os
 import socket
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Tuple
 
 import numpy as np
@@ -234,15 +234,15 @@ class FilterPipeline:
     notch: float
     bp_lo: float
     bp_hi: float
+    _notch: tuple[np.ndarray, np.ndarray] | None = field(init=False, default=None, repr=False)
+    _band: tuple[np.ndarray, np.ndarray] | None = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
         nyq = self.fs * 0.5
-        self._notch: tuple[np.ndarray, np.ndarray] | None = None
         if 0 < self.notch < nyq:
             q = 30.0
             w0 = self.notch / nyq
             self._notch = signal.iirnotch(w0, q)
-        self._band: tuple[np.ndarray, np.ndarray] | None = None
         if 0 < self.bp_lo < self.bp_hi < nyq:
             self._band = signal.butter(4, [self.bp_lo / nyq, self.bp_hi / nyq], btype="band")
 
