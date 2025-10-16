@@ -5,8 +5,7 @@ import argparse
 import json
 import socket
 import time
-from collections import deque
-from typing import Deque, Dict
+from typing import Dict
 
 from rich import box
 from rich.console import Console
@@ -26,7 +25,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Visualise BCI joystick UDP commands")
     parser.add_argument("--host", default=DEFAULT_HOST, help="UDP host to bind (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="UDP port to bind (default: 5005)")
-    parser.add_argument("--history", type=int, default=120, help="Number of samples to keep in memory")
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Exit after the first valid packet is received.",
+    )
+    parser.add_argument(
+        "--idle-timeout",
+        type=float,
+        default=0.0,
+        help="Exit automatically if no packets arrive for the given seconds.",
+    )
     return parser.parse_args(argv)
 
 
@@ -85,7 +94,6 @@ def main(argv: list[str] | None = None) -> None:
     sock.settimeout(0.3)
 
     latest: Dict[str, float] = {"yaw": 0.0, "altitude": 0.0, "pitch": 0.0, "throttle": 0.0}
-    history: Deque[Dict[str, float]] = deque(maxlen=max(1, args.history))
     last_update = 0.0
     received = 0
 
@@ -96,6 +104,10 @@ def main(argv: list[str] | None = None) -> None:
                     data, _ = sock.recvfrom(2048)
                 except socket.timeout:
                     live.update(build_layout(latest, last_update, received))
+                    if args.idle_timeout > 0 and last_update:
+                        if time.time() - last_update > args.idle_timeout:
+                            console.print("[yellow]Idle timeout reached, exiting dashboard.[/yellow]")
+                            break
                     continue
 
                 try:
@@ -110,8 +122,10 @@ def main(argv: list[str] | None = None) -> None:
                     latest["throttle"] = float(payload["speed"]) * 2.0 - 1.0
                 last_update = time.time()
                 received += 1
-                history.append(dict(latest))
                 live.update(build_layout(latest, last_update, received))
+                if args.once:
+                    console.print("[green]Received first packet, exiting dashboard.[/green]")
+                    break
         except KeyboardInterrupt:
             console.print("\n[bold yellow]Stopping dashboard...[/bold yellow]")
         finally:

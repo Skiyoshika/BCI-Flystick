@@ -147,6 +147,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Do not launch the telemetry dashboard, even if enabled in the profile.",
     )
+    parser.add_argument(
+        "--dashboard",
+        choices=["terminal", "gui", "none"],
+        help="Override the telemetry dashboard mode (terminal/gui/none).",
+    )
     args = parser.parse_args(argv)
 
     if args.wizard:
@@ -187,7 +192,15 @@ def main(argv: list[str] | None = None) -> int:
     udp_host = str(profile.get("udp_host", "127.0.0.1"))
     udp_port = int(profile.get("udp_port", 5005))
     control_backend = str(profile.get("control_backend", "vigem"))
-    launch_dashboard = bool(profile.get("launch_dashboard", True))
+    profile_dashboard_mode = str(profile.get("dashboard_mode", "")).strip().lower()
+    launch_dashboard_flag = profile.get("launch_dashboard")
+    if not profile_dashboard_mode:
+        if launch_dashboard_flag is None:
+            profile_dashboard_mode = "terminal"
+        else:
+            profile_dashboard_mode = "terminal" if bool(launch_dashboard_flag) else "none"
+    launch_dashboard = profile_dashboard_mode != "none"
+    dashboard_mode = profile_dashboard_mode if launch_dashboard else "none"
     mock_mode = bool(profile.get("mock_mode", False))
 
     if args.force_mock:
@@ -196,6 +209,10 @@ def main(argv: list[str] | None = None) -> int:
         mock_mode = False
     if args.no_dashboard:
         launch_dashboard = False
+        dashboard_mode = "none"
+    if args.dashboard:
+        dashboard_mode = args.dashboard
+        launch_dashboard = dashboard_mode != "none"
 
     env = os.environ.copy()
     env["BCI_FLYSTICK_PROFILE"] = str(profile_path.resolve())
@@ -256,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
 
-        if launch_dashboard:
+        if launch_dashboard and dashboard_mode == "terminal":
             processes.append(
                 _spawn(
                     "udp_dashboard",
@@ -264,6 +281,22 @@ def main(argv: list[str] | None = None) -> int:
                         sys.executable,
                         "-m",
                         "python.udp_dashboard",
+                        "--host",
+                        udp_host,
+                        "--port",
+                        str(udp_port),
+                    ],
+                    env=env,
+                )
+            )
+        elif launch_dashboard and dashboard_mode == "gui":
+            processes.append(
+                _spawn(
+                    "gui_dashboard",
+                    [
+                        sys.executable,
+                        "-m",
+                        "python.gui_dashboard",
                         "--host",
                         udp_host,
                         "--port",
