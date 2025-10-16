@@ -58,7 +58,13 @@ python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r python/requirements.txt
 ```
-3️⃣ Configure Channels
+3️⃣ Run the guided setup wizard (optional but recommended)
+```bash
+python -m python.main --wizard               # Add --wizard-language zh for Chinese prompts
+```
+The wizard now checks Python/driver prerequisites, lets you pick UDP host/port, mock vs. real BrainFlow mode, joystick backend, and telemetry/dashboard preferences. Profiles are saved under `config/user_profiles/` and reused automatically by the runtime launcher.
+
+4️⃣ Configure Channels
 Edit config/channel_map.json:
 
 ```json
@@ -85,32 +91,28 @@ Edit config/channel_map.json:
 | `calibration_sec` | float | 基线校准时长（秒） |
 | `udp_target` | [str, int] | 下游接收端的地址与端口 |
 
-4️⃣ One-Click Launch (Windows)
-```powershell
-scripts\start_windows.bat                   # 可附加 --mock、--duration 等参数
-```
-The batch script sets up the virtual environment (if needed), installs dependencies, then launches
-the controller, vJoy bridge and telemetry dashboard in dedicated consoles. Close the opened windows
-to stop all services.
+5️⃣ Launch the orchestrated runtime
+```bash
+# Start with the last-used profile
+python -m python.main
 
-5️⃣ Manual Startup (Cross-Platform)
+# Specify a profile explicitly
+python -m python.main --config config/user_profiles/my_profile.json
+
+# Useful overrides
+python -m python.main --mock           # 强制使用模拟 EEG 数据
+python -m python.main --no-dashboard   # 不启动终端摇杆仪表板
+```
+`python.main` now starts the BrainFlow controller, the correct virtual joystick bridge (`feed_vjoy` or `feed_uinput`), and the Rich-based telemetry dashboard in one shot. Use `Ctrl+C` to stop all services—shutdown is coordinated automatically.
+
+6️⃣ Manual Startup (advanced / debugging)
 ```bash
 python python/bci_controller.py              # 连接真实硬件
-# 离线调试：使用内置模拟器并在 N 秒后退出
-python python/bci_controller.py --mock --duration 30
+python python/bci_controller.py --mock       # 使用模拟 EEG
+python python/feed_vjoy.py --host 0.0.0.0    # Windows vJoy
+sudo python python/feed_uinput.py            # Linux uinput
+python python/udp_dashboard.py               # 终端摇杆仪表板
 ```
-The system performs ~25 s baseline calibration, then streams Yaw / Altitude / Pitch / Throttle.
-
-**Windows (vJoy):** `python python/feed_vjoy.py`
-
-**Linux (uinput):** `sudo python python/feed_uinput.py`
-
-6️⃣ Visualise Command Telemetry (manual mode)
-
-```bash
-python python/udp_dashboard.py
-```
-The terminal dashboard displays the four joystick axes in real time for quick verification.
 
 ## 本地自检
 
