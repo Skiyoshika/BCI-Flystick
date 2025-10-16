@@ -23,7 +23,7 @@ It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** pattern
 | **Signal Processing** | μ/β ERD for motor imagery and α/SSVEP for attention control |
 | **Virtual Joystick Output** | vJoy (Windows) or uinput (Linux) creates a USB joystick device |
 | **Offline Development** | Built-in mock EEG board & BrainFlow synthetic mode for hardware-free testing |
-| **Live Telemetry Dashboard** | Terminal UI visualises yaw/altitude/pitch/throttle in real time |
+| **Live Telemetry Dashboard** | Terminal (Rich) and GUI viewers visualise yaw/altitude/pitch/throttle |
 | **Simulator Integration** | Works with PX4 SITL + QGroundControl, Mission Planner, AirSim, VelociDrone |
 | **Config-Driven Design** | JSON + YAML for channel mapping and parameter tuning |
 | **Extensible Architecture** | Python feature extraction + Rust receiver for low-latency control |
@@ -78,7 +78,7 @@ pip install -r python/requirements.txt
 ```bash
 python -m python.main --wizard               # Add --wizard-language zh for Chinese prompts
 ```
-The wizard now checks Python/driver prerequisites, lets you pick UDP host/port, mock vs. real BrainFlow mode, joystick backend, and telemetry/dashboard preferences. Profiles are saved under `config/user_profiles/` and reused automatically by the runtime launcher.
+The wizard now checks Python/driver prerequisites, lets you pick UDP host/port, mock vs. real BrainFlow mode, joystick backend, and telemetry/dashboard preferences (terminal, GUI or disabled). Profiles are saved under `config/user_profiles/` and reused automatically by the runtime launcher.
 
 4️⃣ Configure Channels
 Edit config/channel_map.json:
@@ -118,8 +118,9 @@ python -m python.main --config config/user_profiles/my_profile.json
 # Useful overrides
 python -m python.main --mock           # 强制使用模拟 EEG 数据
 python -m python.main --no-dashboard   # 不启动终端摇杆仪表板
+python -m python.main --dashboard gui  # 直接启动图形化遥测窗口
 ```
-`python.main` now starts the BrainFlow controller, the correct virtual joystick bridge (`feed_vjoy` or `feed_uinput`), and the Rich-based telemetry dashboard in one shot. Use `Ctrl+C` to stop all services—shutdown is coordinated automatically.
+`python.main` now starts the BrainFlow controller, the correct virtual joystick bridge (`feed_vjoy` or `feed_uinput`), and the selected telemetry dashboard (terminal or GUI) in one shot. Use `Ctrl+C` to stop all services—shutdown is coordinated automatically.
 
 6️⃣ Manual Startup (advanced / debugging)
 ```bash
@@ -128,6 +129,8 @@ python python/bci_controller.py --mock       # 使用模拟 EEG
 python python/feed_vjoy.py --host 0.0.0.0    # Windows vJoy
 sudo python python/feed_uinput.py            # Linux uinput
 python python/udp_dashboard.py               # 终端摇杆仪表板
+python python/udp_dashboard.py --once        # 接收首帧后自动退出
+python python/gui_dashboard.py               # 图形界面摇杆遥测
 ```
 
 ## 本地自检

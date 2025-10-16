@@ -54,7 +54,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "axis_scale": "Throttle scaling (0.1 - 2.0, default 1.0): ",
         "mock_mode": "Use mock EEG generator for dry-run testing? [Y/N]: ",
         "mock_warning": "Mock mode is enabled; real OpenBCI hardware will not be used.",
-        "dashboard_prompt": "Launch on-screen telemetry dashboard automatically? [Y/N]: ",
+        "dashboard_prompt": "Choose telemetry dashboard: [1] Terminal (default) [2] GUI [3] None: ",
         "summary": "Configuration summary:",
         "saved": "Profile saved to {path}",
         "remember": "This profile will be used automatically on next launch.",
@@ -87,7 +87,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "axis_scale": "油门缩放系数（0.1 - 2.0，默认 1.0）：",
         "mock_mode": "是否启用模拟 EEG（便于调试，无需硬件）？[Y/N]: ",
         "mock_warning": "将使用模拟 EEG 数据，不会连接真实 OpenBCI 设备。",
-        "dashboard_prompt": "是否自动启动终端遥测仪表板？[Y/N]: ",
+        "dashboard_prompt": "选择遥测展示方式：[1] 终端仪表板（默认） [2] 图形界面 [3] 不启动：",
         "summary": "配置概要：",
         "saved": "配置已保存至 {path}",
         "remember": "下次启动时将自动使用该配置。",
@@ -124,7 +124,8 @@ class Wizard:
             print(self.t("mock_warning"))
         else:
             self._check_brainflow()
-        launch_dashboard = self._prompt_yes_no(self.t("dashboard_prompt"), default=True)
+        dashboard_mode = self._prompt_dashboard_mode()
+        launch_dashboard = dashboard_mode != "none"
 
         profile = {
             "language": self.language,
@@ -136,6 +137,7 @@ class Wizard:
             "throttle_scale": throttle_scale,
             "mock_mode": mock_mode,
             "launch_dashboard": launch_dashboard,
+            "dashboard_mode": dashboard_mode,
         }
 
         print("\n" + self.t("summary"))
@@ -247,6 +249,17 @@ class Wizard:
                 continue
             if minimum <= number <= maximum:
                 return number
+            print(self.t("input_invalid"))
+
+    def _prompt_dashboard_mode(self) -> str:
+        while True:
+            choice = input(self.t("dashboard_prompt")).strip() or "1"
+            if choice == "1":
+                return "terminal"
+            if choice == "2":
+                return "gui"
+            if choice == "3":
+                return "none"
             print(self.t("input_invalid"))
 
 
