@@ -3,6 +3,11 @@ channels:
   - defaults
 dependencies:
   - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - pyyaml
   - flake8
   - pytest
-  # 这里可以添加其他依赖
+  - pip:
+      - -r python/requirements.txt
