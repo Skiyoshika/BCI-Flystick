@@ -63,6 +63,12 @@ bash scripts/bootstrap.sh --skip-git
 bash scripts/bootstrap.sh --skip-git --upgrade-deps
 ```
 
+> ⚠️ **Windows note:** `bash` is not available in plain PowerShell/CMD sessions. Run the
+> bootstrap commands from **Git Bash** (bundled with Git for Windows) or **Windows Subsystem
+> for Linux**. If you prefer to stay in PowerShell, use `wsl bash scripts/bootstrap.sh ...`
+> or upgrade the virtualenv directly with `& .\.venv\Scripts\python.exe -m pip install --upgrade -r
+> python/requirements.txt`.
+
 1️⃣ Clone Repository (manual setup)
 ```bash
 git clone https://github.com/Skiyoshika/BCI-Flystick.git
