@@ -78,7 +78,16 @@ pip install -r python/requirements.txt
 ```bash
 python -m python.main --wizard               # Add --wizard-language zh for Chinese prompts
 ```
-The wizard now checks Python/driver prerequisites, lets you pick UDP host/port, mock vs. real BrainFlow mode, joystick backend, and telemetry/dashboard preferences (terminal, GUI or disabled). Profiles are saved under `config/user_profiles/` and reused automatically by the runtime launcher.
+The refreshed wizard first asks whether you want to start in **test mode** (simulated EEG) or **first-time calibration** (real EEG hardware). It still checks Python/driver prerequisites, guides you through joystick backend selection, UDP host/port, throttle scaling and dashboard preferences. Profiles are saved under `config/user_profiles/` and reused automatically by the runtime launcher, while calibration data lives in `config/calibration_profiles/`.
+
+### Usage Modes introduced by the new wizard
+
+| Mode | What happens | When to use |
+|------|---------------|-------------|
+| **Test mode** | Generates a mock calibration profile, enables the mock EEG controller and launches a new `python.mock_command_gui` window so you can trigger each brainwave action via keyboard buttons while observing the FPV joystick response. | First-time exploration, demoing without hardware, sanity-checking downstream simulators. |
+| **First-time calibration** | Guides you through recording eight actions (accelerate/decelerate, yaw left/right, climb/descend, pitch up/down) using your real OpenBCI headset, storing the durations and polarity preferences in a calibration JSON. The runtime uses these axis signs to map live EEG features into joystick commands without extra key presses. | Preparing a user-specific profile for regular gameplay/simulation sessions. |
+
+Once a calibration exists, you can skip the wizard and launch `python -m python.main` directly. The launcher remembers the most recent profile but you can always pick a different one with `--config`.
 
 4️⃣ Configure Channels
 Edit config/channel_map.json:
@@ -120,7 +129,7 @@ python -m python.main --mock           # 强制使用模拟 EEG 数据
 python -m python.main --no-dashboard   # 不启动终端摇杆仪表板
 python -m python.main --dashboard gui  # 直接启动图形化遥测窗口
 ```
-`python.main` now starts the BrainFlow controller, the correct virtual joystick bridge (`feed_vjoy` or `feed_uinput`), and the selected telemetry dashboard (terminal or GUI) in one shot. Use `Ctrl+C` to stop all services—shutdown is coordinated automatically.
+`python.main` now starts the BrainFlow controller, the correct virtual joystick bridge (`feed_vjoy` or `feed_uinput`), and the selected telemetry dashboard (terminal or GUI) in one shot. If the active profile comes from the wizard's test mode, the launcher also spawns the `python.mock_command_gui` helper so you can emit simulated EEG actions with the keyboard while observing the FPV stick. Use `Ctrl+C` to stop all services—shutdown is coordinated automatically.
 
 6️⃣ Manual Startup (advanced / debugging)
 ```bash

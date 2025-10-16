@@ -35,6 +35,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CFG_MAP = os.path.join(BASE_DIR, "config", "channel_map.json")
 CFG_SET = os.path.join(BASE_DIR, "config", "settings.yaml")
 PROFILE_ENV_VAR = "BCI_FLYSTICK_PROFILE"
+CALIBRATION_ENV_VAR = "BCI_FLYSTICK_CALIBRATION"
 
 
 class ConfigError(RuntimeError):
@@ -216,6 +217,34 @@ def load_runtime_profile() -> Dict[str, Any]:
 
     return data
 
+
+def load_calibration_axis_signs() -> Dict[str, float]:
+    """Load axis polarity overrides from the calibration profile if available."""
+
+    axis_signs = {"yaw": 1.0, "altitude": 1.0, "pitch": 1.0, "throttle": 1.0}
+    path = os.environ.get(CALIBRATION_ENV_VAR)
+    if not path:
+        return axis_signs
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except FileNotFoundError:
+        print(f"[WARN] Calibration profile not found: {path}")
+        return axis_signs
+    except json.JSONDecodeError as exc:
+        print(f"[WARN] Invalid calibration profile JSON: {exc}")
+        return axis_signs
+    except OSError as exc:
+        print(f"[WARN] Failed to read calibration profile: {exc}")
+        return axis_signs
+
+    raw_signs = data.get("axis_signs") if isinstance(data, dict) else None
+    if isinstance(raw_signs, dict):
+        for axis, value in raw_signs.items():
+            if axis in axis_signs and isinstance(value, (int, float)):
+                axis_signs[axis] = 1.0 if float(value) >= 0 else -1.0
+    return axis_signs
+
 class Ewma:
     """指数加权移动平均滤波器"""
     def __init__(self, a):
@@ -357,6 +386,19 @@ def main(argv: list[str] | None = None) -> None:
             udp_target = (udp_target[0], args.udp_port)
 
         runtime_profile = load_runtime_profile()
+        axis_signs = {"yaw": 1.0, "altitude": 1.0, "throttle": 1.0, "pitch": 1.0}
+        profile_signs = runtime_profile.get("axis_signs")
+        if isinstance(profile_signs, dict):
+            for axis, value in profile_signs.items():
+                if axis in axis_signs and isinstance(value, (int, float)):
+                    axis_signs[axis] = 1.0 if float(value) >= 0 else -1.0
+        calibration_signs = load_calibration_axis_signs()
+        axis_signs.update(calibration_signs)
+        overrides_msg = ", ".join(
+            f"{axis}={'+1' if sign >= 0 else '-1'}" for axis, sign in axis_signs.items()
+        )
+        if overrides_msg:
+            print(f"[PROFILE] Axis polarity → {overrides_msg}")
         invert_pitch = bool(runtime_profile.get("invert_pitch", False))
         throttle_scale_raw = runtime_profile.get("throttle_scale", 1.0)
         try:
@@ -498,12 +540,12 @@ def main(argv: list[str] | None = None) -> None:
             pitch_value = gains["pitch"] * sPit.step(pitch_raw)
             if invert_pitch:
                 pitch_value *= -1.0
-            pitch = clamp(pitch_value)
+            pitch = clamp(pitch_value) * axis_signs.get("pitch", 1.0)
 
             oz_alpha = bandpower(oz, fs, *AL)
             thr_raw = (B_OZ - oz_alpha) / (B_OZ + 1e-9)
             throttle_value = gains["throttle"] * sThr.step(thr_raw) * throttle_scale
-            throttle = clamp(throttle_value)
+            throttle = clamp(throttle_value) * axis_signs.get("throttle", 1.0)
 
             if abs(yaw) < dead:
                 yaw = 0.0
@@ -513,6 +555,9 @@ def main(argv: list[str] | None = None) -> None:
                 pitch = 0.0
             if abs(throttle) < dead:
                 throttle = 0.0
+
+            yaw *= axis_signs.get("yaw", 1.0)
+            alt *= axis_signs.get("altitude", 1.0)
 
             msg = {
                 "yaw": round(yaw, 4),
