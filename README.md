@@ -5,12 +5,13 @@
 
 ## Overview
 
-**BCI-Flystick** is an open-source framework that converts real-time EEG signals from the **OpenBCI Cyton** board into a **three-axis virtual joystick**.  
-It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** patterns to control yaw, altitude, and throttle, enabling brain-driven flight in drone simulators or robotic testbeds. 
+**BCI-Flystick** is an open-source framework that converts real-time EEG signals from the **OpenBCI Cyton** board into a **four-axis virtual joystick**.
+It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** patterns to control yaw, altitude, pitch and throttle, enabling brain-driven flight in drone simulators or robotic testbeds.
 
-> • **Yaw (left/right rotation)** ← C3/C4 μβ lateralization  
-> • **Altitude (up/down)** ← Cz μβ ERD intensity  
-> • **Speed (throttle)** ← Oz α power decrease or SSVEP frequency response  
+> • **Yaw (left/right rotation)** ← C3/C4 μβ lateralization
+> • **Altitude (up/down)** ← Cz μβ ERD intensity
+> • **Pitch (nose up/down)** ← Cz μ vs β balance dynamics
+> • **Throttle (accelerate/decelerate)** ← Oz α power decrease or SSVEP frequency response
 
 ---
 
@@ -21,6 +22,8 @@ It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** pattern
 | **EEG Acquisition** | Real-time data streaming from OpenBCI Cyton (8 channels) |
 | **Signal Processing** | μ/β ERD for motor imagery and α/SSVEP for attention control |
 | **Virtual Joystick Output** | vJoy (Windows) or uinput (Linux) creates a USB joystick device |
+| **Offline Development** | Built-in mock EEG board & BrainFlow synthetic mode for hardware-free testing |
+| **Live Telemetry Dashboard** | Terminal UI visualises yaw/altitude/pitch/throttle in real time |
 | **Simulator Integration** | Works with PX4 SITL + QGroundControl, Mission Planner, AirSim, VelociDrone |
 | **Config-Driven Design** | JSON + YAML for channel mapping and parameter tuning |
 | **Extensible Architecture** | Python feature extraction + Rust receiver for low-latency control |
@@ -37,7 +40,7 @@ EEG (C3, C4, Cz, Oz)
         ↓        
  Feature Extraction (μ, β, α, SSVEP) 
         ↓      
-   UDP Stream (Yaw, Alt, Speed)  
+  UDP Stream (Yaw, Alt, Pitch, Throttle)
         ↓       
  Virtual Joystick (vJoy / uinput) 
         ↓       
@@ -78,15 +81,17 @@ Edit config/channel_map.json:
 | `window_sec` / `hop_sec` | float | 时频分析窗口长度与步长（秒） |
 | `ewma_alpha` | float | 指数平滑系数，范围 [0,1] |
 | `dead_band` | float | 输出死区阈值 |
-| `gains` | dict | `yaw`、`altitude`、`speed` 三个增益 |
+| `gains` | dict | `yaw`、`altitude`、`pitch`、`throttle` 四个增益 |
 | `calibration_sec` | float | 基线校准时长（秒） |
 | `udp_target` | [str, int] | 下游接收端的地址与端口 |
 
 4️⃣ Start Controller
 ```bash
-python python/bci_controller.py
+python python/bci_controller.py             # 连接真实硬件
+# 离线调试：使用内置模拟器并在 N 秒后退出
+python python/bci_controller.py --mock --duration 30
 ```
-The system performs ~25 s baseline calibration, then streams Yaw / Altitude / Speed.
+The system performs ~25 s baseline calibration, then streams Yaw / Altitude / Pitch / Throttle.
 
 5️⃣ Connect to Virtual Joystick
 
@@ -101,6 +106,13 @@ python python/feed_vjoy.py
 sudo python python/feed_uinput.py
 ```
 A virtual joystick will appear and be recognized by QGroundControl / AirSim / Mission Planner.
+
+6️⃣ Visualise Command Telemetry
+
+```bash
+python python/udp_dashboard.py
+```
+The terminal dashboard displays the four joystick axes in real time for quick verification.
 
 ## 本地自检
 

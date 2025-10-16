@@ -16,14 +16,17 @@ def _require_pyvjoy() -> None:
         sys.exit(1)
 UDP = ("127.0.0.1", 5005)
 
-def map_axis(x):
+def map_axis(x: float) -> int:
     """将 [-1, 1] 映射到 [0, 65535] 并防止溢出"""
-    val = (x + 1) * 0.5 * 65535
+
+    val = (float(x) + 1.0) * 0.5 * 65535
     return max(0, min(65535, int(val)))
-def map_throttle(x):
-    """将 [0, 1] 映射到 [0, 65535] 并防止溢出"""
-    val = x * 65535
-    return max(0, min(65535, int(val)))
+
+
+def map_throttle(x: float) -> int:
+    """将 [-1, 1] 映射到 [0, 65535] 并防止溢出"""
+
+    return map_axis(x)
 def main():
     _require_pyvjoy()
     # 检查 vJoy 驱动
@@ -55,11 +58,17 @@ def main():
             data, _ = sock.recvfrom(2048)
             try:
                 m = json.loads(data.decode())
-                if not all(k in m for k in ["yaw", "altitude", "speed"]):
+                if not all(k in m for k in ["yaw", "altitude"]):
                     continue
+                throttle_val = m.get("throttle")
+                if throttle_val is None:
+                    throttle_val = 2 * float(m.get("speed", 0.0)) - 1.0
+                pitch_val = float(m.get("pitch", 0.0))
                 j.set_axis(pyvjoy.HID_USAGE_X, map_axis(m["yaw"]))
                 j.set_axis(pyvjoy.HID_USAGE_Y, map_axis(m["altitude"]))
-                j.set_axis(pyvjoy.HID_USAGE_Z, map_throttle(m["speed"]))
+                j.set_axis(pyvjoy.HID_USAGE_Z, map_throttle(throttle_val))
+                if hasattr(pyvjoy, "HID_USAGE_RX"):
+                    j.set_axis(pyvjoy.HID_USAGE_RX, map_axis(pitch_val))
             except json.JSONDecodeError:
                 continue
     except KeyboardInterrupt:

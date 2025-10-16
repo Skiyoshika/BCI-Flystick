@@ -15,9 +15,9 @@ def test_map_axis_range() -> None:
 
 
 def test_map_throttle_range() -> None:
-    assert map_throttle(-0.5) == 0
-    assert map_throttle(0.5) == int(0.5 * 65535)
-    assert map_throttle(2.0) == 65535
+    assert map_throttle(-1.5) == 0
+    assert map_throttle(0.0) == 32767
+    assert map_throttle(0.75) == map_axis(0.75)
 
 
 def test_uinput_mappings() -> None:
