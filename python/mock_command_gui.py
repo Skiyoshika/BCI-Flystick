@@ -40,6 +40,10 @@ class SmoothAxisState:
         self.value = 0.0
         self.target = 0.0
 
+    def hold(self) -> None:
+        """Freeze the target at the current value to avoid automatic rollback."""
+        self.target = self.value
+
     def step(self, rate_per_sec: float, dt: float) -> bool:
         diff = self.target - self.value
         if abs(diff) <= 1e-6:
@@ -253,9 +257,8 @@ class MockEEGGui:
             self._axis_states[action.axis].target = 1.0 if active.direction >= 0 else -1.0
             self._current_label = active.label
         else:
-            self._axis_states[action.axis].target = 0.0
-            if not any(self._axis_action_stack.values()):
-                self._current_label = "Neutral"
+            state = self._axis_states[action.axis]
+            state.hold()
 
     def _send_neutral(self) -> None:
         self._pressed_keys.clear()

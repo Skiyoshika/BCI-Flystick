@@ -276,18 +276,32 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
+        backend_args = [
+            sys.executable,
+            "-m",
+            backend_module,
+            "--host",
+            udp_host,
+            "--port",
+            str(udp_port),
+        ]
+        if backend_name == "feed_vjoy":
+            device_id_raw = profile.get("vjoy_device_id")
+            if device_id_raw is None:
+                device_id_raw = os.environ.get("BCI_FLYSTICK_VJOY_ID")
+            if device_id_raw is not None:
+                try:
+                    device_id = int(device_id_raw)
+                except (TypeError, ValueError):
+                    device_id = None
+                else:
+                    if device_id > 0:
+                        backend_args.extend(["--device-id", str(device_id)])
+
         processes.append(
             _spawn(
                 backend_name,
-                [
-                    sys.executable,
-                    "-m",
-                    backend_module,
-                    "--host",
-                    udp_host,
-                    "--port",
-                    str(udp_port),
-                ],
+                backend_args,
                 env=env,
             )
         )
