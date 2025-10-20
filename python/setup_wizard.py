@@ -56,6 +56,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "control_scheme": "Choose control backend [1] vJoy/ViGEm (Windows) [2] uinput (Linux): ",
         "udp_port": "UDP port for BCI receiver (default 5005): ",
         "udp_host": "UDP host for local services (default 127.0.0.1): ",
+        "vjoy_device": "vJoy device ID to control (default 1): ",
         "axis_invert": "Invert pitch axis? [Y/N]: ",
         "axis_scale": "Throttle scaling (0.1 - 2.0, default 1.0): ",
         "calibration_intro": "We will now record eight guided brainwave actions. Prepare your headset and ensure the feed is stable.",
@@ -109,6 +110,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "control_scheme": "选择控制后端 [1] vJoy/ViGEm（Windows） [2] uinput（Linux）: ",
         "udp_port": "BCI 接收端 UDP 端口（默认为 5005）：",
         "udp_host": "本机 UDP 主机地址（默认为 127.0.0.1）：",
+        "vjoy_device": "vJoy 设备编号（默认为 1）：",
         "axis_invert": "是否反转俯仰轴？[Y/N]: ",
         "axis_scale": "油门缩放系数（0.1 - 2.0，默认 1.0）：",
         "calibration_intro": "接下来将依次采集八个动作的脑波，请佩戴好设备并保持稳定。",
@@ -171,6 +173,9 @@ class Wizard:
         profile_name = self._prompt_profile_name()
         control_backend = self._prompt_control_backend()
         self._check_backend_dependencies(control_backend)
+        vjoy_device_id: int | None = None
+        if control_backend == "vigem":
+            vjoy_device_id = self._prompt_vjoy_device_id()
         udp_host = self._prompt_udp_host()
         udp_port = self._prompt_udp_port()
         invert_pitch = self._prompt_yes_no(self.t("axis_invert"), default=False)
@@ -205,6 +210,8 @@ class Wizard:
             "calibration_profile": str(calibration_path),
             "axis_signs": axis_signs,
         }
+        if vjoy_device_id is not None:
+            profile["vjoy_device_id"] = vjoy_device_id
 
         print("\n" + self.t("summary"))
         print(json.dumps(profile, indent=2, ensure_ascii=False))
@@ -306,6 +313,17 @@ class Wizard:
                 port = int(value)
                 if 1024 <= port <= 65535:
                     return port
+            print(self.t("input_invalid"))
+
+    def _prompt_vjoy_device_id(self) -> int:
+        while True:
+            value = input(self.t("vjoy_device")).strip()
+            if not value:
+                return 1
+            if value.isdigit():
+                device_id = int(value)
+                if 1 <= device_id <= 16:
+                    return device_id
             print(self.t("input_invalid"))
 
     def _prompt_yes_no(self, prompt: str, *, default: bool) -> bool:

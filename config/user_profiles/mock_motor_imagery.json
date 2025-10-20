@@ -3,6 +3,7 @@
   "profile_name": "mock_motor_imagery",
   "mode": "test",
   "control_backend": "vigem",
+  "vjoy_device_id": 1,
   "udp_host": "127.0.0.1",
   "udp_port": 5005,
   "invert_pitch": false,
