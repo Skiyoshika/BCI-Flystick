@@ -238,26 +238,42 @@ def main(argv: list[str] | None = None) -> int:
 
     processes: list[ManagedProcess] = []
     try:
-        controller_cmd = [
-            sys.executable,
-            "-m",
-            "python.bci_controller",
-            "--udp-host",
-            udp_host,
-            "--udp-port",
-            str(udp_port),
-        ]
-        if mock_mode:
-            controller_cmd.append("--mock")
-            print(_localise(language, "Mock EEG generator enabled.", "已启用模拟 EEG 数据。"))
+        launch_controller = profile_mode != "test"
+        if launch_controller:
+            controller_cmd = [
+                sys.executable,
+                "-m",
+                "python.bci_controller",
+                "--udp-host",
+                udp_host,
+                "--udp-port",
+                str(udp_port),
+            ]
+            if mock_mode:
+                controller_cmd.append("--mock")
+                print(
+                    _localise(
+                        language,
+                        "Mock EEG generator enabled.",
+                        "已启用模拟 EEG 数据。",
+                    )
+                )
 
-        processes.append(
-            _spawn(
-                "bci_controller",
-                controller_cmd,
-                env=env,
+            processes.append(
+                _spawn(
+                    "bci_controller",
+                    controller_cmd,
+                    env=env,
+                )
             )
-        )
+        elif mock_mode:
+            print(
+                _localise(
+                    language,
+                    "Test mode: using mock command GUI as the sole UDP sender.",
+                    "测试模式：仅由模拟命令 GUI 发送 UDP 数据。",
+                )
+            )
 
         if control_backend == "vigem":
             backend_module = "python.feed_vjoy"
