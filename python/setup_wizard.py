@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -84,6 +85,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "axis_altitude": "Altitude (up/down)",
         "axis_throttle": "Throttle (forward speed)",
         "axis_pitch": "Pitch (nose up/down)",
+        "tkinter_check": "Checking Tkinter GUI support...",
+        "tkinter_ok": "Tkinter is available.",
+        "tkinter_missing": "Tkinter is not available ({error}). The mock command GUI requires Tkinter.",
+        "tkinter_hint_windows": "Windows: reinstall Python with the \"tcl/tk and IDLE\" option enabled, or repair the official installer to add Tkinter.",
+        "tkinter_hint_linux": "Linux: install the Tk development package, e.g. `sudo apt install python3-tk` (or the equivalent for your distribution).",
+        "tkinter_hint_macos": "macOS: install Python from python.org or run `brew install python-tk` to add Tkinter support.",
     },
     "zh": {
         "welcome": "欢迎使用 BCI Flystick 引导程序！",
@@ -138,6 +145,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "axis_altitude": "高度（上/下）",
         "axis_throttle": "油门（前进速度）",
         "axis_pitch": "俯仰（机头上下）",
+        "tkinter_check": "正在检查 Tkinter 图形界面支持...",
+        "tkinter_ok": "已检测到 Tkinter。",
+        "tkinter_missing": "未检测到 Tkinter（{error}）。模拟命令 GUI 需要该模块。",
+        "tkinter_hint_windows": "Windows：使用官方安装包并勾选“tcl/tk and IDLE”选项，或重新修复安装以启用 Tkinter。",
+        "tkinter_hint_linux": "Linux：安装 Tk 开发包，例如 `sudo apt install python3-tk`（或对应发行版的等效命令）。",
+        "tkinter_hint_macos": "macOS：通过 python.org 安装包或执行 `brew install python-tk` 获取 Tkinter 支持。",
     },
 }
 
@@ -183,6 +196,7 @@ class Wizard:
         if mode == "test":
             mock_mode = True
             print(self.t("mode_test_note"))
+            self._check_tkinter()
         else:
             mock_mode = False
             print(self.t("mode_calibration_note"))
@@ -269,6 +283,24 @@ class Wizard:
             print(self.t("brainflow_missing").format(install=pip_name))
         else:
             print(self.t("brainflow_ok"))
+
+    def _check_tkinter(self) -> bool:
+        print(self.t("tkinter_check"))
+        try:
+            import tkinter  # type: ignore  # noqa: F401
+        except Exception as exc:  # pragma: no cover - platform dependent
+            print(self.t("tkinter_missing").format(error=exc))
+            if sys.platform.startswith("win"):
+                hint_key = "tkinter_hint_windows"
+            elif sys.platform == "darwin":
+                hint_key = "tkinter_hint_macos"
+            else:
+                hint_key = "tkinter_hint_linux"
+            print(self.t(hint_key))
+            return False
+        else:
+            print(self.t("tkinter_ok"))
+            return True
 
     def _prompt_mode(self) -> str:
         while True:

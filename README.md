@@ -33,18 +33,30 @@ It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** pattern
 
 ## System Architecture
 ```text
+Hardware mode (default)
 EEG (C3, C4, Cz, Oz)
-        ↓    
-   OpenBCI Cyton 
-        ↓      
+        ↓
+   OpenBCI Cyton
+        ↓
   BrainFlow SDK (Python)
-        ↓        
- Feature Extraction (μ, β, α, SSVEP) 
-        ↓      
+        ↓
+ Feature Extraction (μ, β, α, SSVEP)
+        ↓
   UDP Stream (Yaw, Alt, Pitch, Throttle)
-        ↓       
- Virtual Joystick (vJoy / uinput) 
-        ↓       
+        ↓
+ Virtual Joystick (vJoy / uinput)
+        ↓
+ Drone Simulator / Game Engine
+```
+
+```text
+Test mode (hardware-free)
+Mock Command GUI (keyboard)
+        ↓
+  UDP Stream (Yaw, Alt, Pitch, Throttle)
+        ↓
+ Virtual Joystick (vJoy / uinput)
+        ↓
  Drone Simulator / Game Engine
 ```
 ## Installation & Setup
@@ -123,7 +135,7 @@ The refreshed wizard first asks whether you want to start in **test mode** (simu
 
 | Mode | What happens | When to use |
 |------|---------------|-------------|
-| **Test mode** | Generates a mock calibration profile, enables the mock EEG controller and launches a new `python.mock_command_gui` window so you can trigger each brainwave action via keyboard buttons while observing the FPV joystick response. | First-time exploration, demoing without hardware, sanity-checking downstream simulators. |
+| **Test mode** | Generates a mock calibration profile and launches `python.mock_command_gui` as the only UDP publisher so you can trigger each brainwave action via keyboard buttons while observing the FPV joystick response. | First-time exploration, demoing without hardware, sanity-checking downstream simulators. |
 | **First-time calibration** | Guides you through recording eight actions (accelerate/decelerate, yaw left/right, climb/descend, pitch up/down) using your real OpenBCI headset, storing the durations and polarity preferences in a calibration JSON. The runtime uses these axis signs to map live EEG features into joystick commands without extra key presses. | Preparing a user-specific profile for regular gameplay/simulation sessions. |
 
 Once a calibration exists, you can skip the wizard and launch `python -m python.main` directly. The launcher remembers the most recent profile but you can always pick a different one with `--config`.
@@ -168,7 +180,7 @@ python -m python.main --mock           # Force mock EEG data
 python -m python.main --no-dashboard   # Disable the terminal joystick dashboard
 python -m python.main --dashboard gui  # Launch the graphical telemetry window directly
 ```
-`python.main` now starts the BrainFlow controller, the correct virtual joystick bridge (`feed_vjoy` or `feed_uinput`), and the selected telemetry dashboard (terminal or GUI) in one shot. If the active profile comes from the wizard's test mode, the launcher also spawns the `python.mock_command_gui` helper so you can emit simulated EEG actions with the keyboard while observing the FPV stick. Use `Ctrl+C` to stop all services—shutdown is coordinated automatically.
+`python.main` now starts the BrainFlow controller (for hardware-driven profiles), the correct virtual joystick bridge (`feed_vjoy` or `feed_uinput`), and the selected telemetry dashboard (terminal or GUI) in one shot. If the active profile comes from the wizard's test mode, the launcher skips the controller and instead spawns `python.mock_command_gui` as the sole UDP sender so you can emit simulated EEG actions with the keyboard while observing the FPV stick. Use `Ctrl+C` to stop all services—shutdown is coordinated automatically.
 
 6️⃣ Manual Startup (advanced / debugging)
 ```bash
@@ -193,8 +205,10 @@ python -m python.main --config config/user_profiles/mock_motor_imagery.json
 
 The launcher will open the GUI dashboard together with `python.mock_command_gui`.
 Each button press now updates the dashboard and prints the effective joystick
-axes in the Console footer. When you need additional confirmation, launch the
-Console with `--echo` to mirror every UDP packet:
+axes in the Console footer. Because the controller stays offline in this mode,
+the GUI is the only UDP source, preventing conflicts on port 5005. When you
+need additional confirmation, launch the Console with `--echo` to mirror every
+UDP packet:
 
 ```bash
 python -m python.mock_command_gui --calibration config/calibration_profiles/mock_motor_imagery.json --echo
