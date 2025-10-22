@@ -22,6 +22,7 @@ except Exception:  # pragma: no cover - only triggered when pyvjoy absent
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 5005
 AXIS_MAX = 32767
+AXIS_ORDER = ("throttle", "roll", "pitch", "yaw")
 
 
 def _require_pyvjoy() -> None:
@@ -81,27 +82,41 @@ def _first_match(mapping: Mapping[str, Any], keys: Iterable[str]) -> Any:
 def _extract_axes(payload: Mapping[str, Any]) -> Dict[str, Optional[int]]:
     """Pick out joystick axes from a telemetry payload.
 
-    The controller broadcasts the canonical fields ``yaw``, ``altitude``,
-    ``throttle`` and ``pitch``.  For compatibility with older payload shapes we
-    accept a few aliases (e.g. ``x``/``y``/``z`` for the primary axes and
-    ``speed`` as a throttle substitute).  All lookups are case-insensitive.
+    The controller now broadcasts the canonical fields ``throttle``, ``roll``,
+    ``pitch`` and ``yaw``. For compatibility with older payload shapes we
+    accept a few aliases (e.g. ``altitude`` for roll, ``x``/``y``/``z`` for the
+    primary axes, and ``speed`` as a throttle substitute). All lookups are
+    case-insensitive.
     """
 
     lowered = {k.lower(): v for k, v in payload.items()}
 
-    yaw_value = normalize(_first_match(lowered, ("yaw", "x", "roll")))
-    altitude_value = normalize(_first_match(lowered, ("altitude", "y")))
     throttle_value = normalize(
         _first_match(lowered, ("throttle", "z", "speed"))
     )
-    pitch_value = normalize(_first_match(lowered, ("pitch", "rx")))
+    roll_value = normalize(
+        _first_match(lowered, ("roll", "altitude", "x"))
+    )
+    pitch_value = normalize(
+        _first_match(lowered, ("pitch", "y", "elevator", "rx"))
+    )
+    yaw_value = normalize(
+        _first_match(lowered, ("yaw", "rz", "ry", "rudder"))
+    )
 
-    return {
-        "yaw": yaw_value,
-        "altitude": altitude_value,
+    axes: Dict[str, Optional[int]] = {
         "throttle": throttle_value,
+        "roll": roll_value,
         "pitch": pitch_value,
+        "yaw": yaw_value,
     }
+
+    # Maintain legacy compatibility for consumers that still expect an
+    # ``altitude`` reading by mirroring the roll signal when the payload does
+    # not explicitly include it.
+    axes["altitude"] = roll_value
+
+    return axes
 
 
 def _fill_missing_axes(
@@ -187,7 +202,7 @@ def main(argv: list[str] | None = None) -> None:
     packet_counter = 0
     last_report_time = time.time()
 
-    neutral_axes = {axis: normalize(0.0) for axis in ("yaw", "altitude", "throttle", "pitch")}
+    neutral_axes = {axis: normalize(0.0) for axis in AXIS_ORDER}
     current_axes = dict(neutral_axes)
 
     try:
@@ -221,10 +236,11 @@ def main(argv: list[str] | None = None) -> None:
                 )
 
             try:
-                j.set_axis(pyvjoy.HID_USAGE_X, axes["throttle"])
-                j.set_axis(pyvjoy.HID_USAGE_Y, axes["yaw"])
-                j.set_axis(pyvjoy.HID_USAGE_Z, axes["altitude"])
-                j.set_axis(pyvjoy.HID_USAGE_RX, axes["pitch"])
+                j.set_axis(pyvjoy.HID_USAGE_X, axes["roll"])
+                j.set_axis(pyvjoy.HID_USAGE_Y, axes["pitch"])
+                j.set_axis(pyvjoy.HID_USAGE_Z, axes["throttle"])
+                usage_rz = getattr(pyvjoy, "HID_USAGE_RZ", pyvjoy.HID_USAGE_RX)
+                j.set_axis(usage_rz, axes["yaw"])
             except pyvjoy.vJoyException as exc:  # type: ignore[attr-defined]
                 print(f"[ERROR] vJoy update failed: {exc}")
                 time.sleep(0.5)
@@ -239,8 +255,8 @@ def main(argv: list[str] | None = None) -> None:
             if elapsed >= 1.0:
                 rate = packet_counter / max(elapsed, 1e-9)
                 print(
-                    f"[INFO] {rate:5.1f} pkt/s | Yaw={axes['yaw']:5d} "
-                    f"Alt={axes['altitude']:5d} Throttle={axes['throttle']:5d} Pitch={axes['pitch']:5d}"
+                    f"[INFO] {rate:5.1f} pkt/s | Roll={axes['roll']:5d} "
+                    f"Pitch={axes['pitch']:5d} Yaw={axes['yaw']:5d} Throttle={axes['throttle']:5d}"
                 )
                 packet_counter = 0
                 last_report_time = now

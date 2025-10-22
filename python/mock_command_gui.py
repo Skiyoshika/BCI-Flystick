@@ -25,9 +25,20 @@ class Action:
 
     def payload(self) -> Dict[str, float]:
         value = 1.0 if self.direction >= 0 else -1.0
-        axes = {"yaw": 0.0, "altitude": 0.0, "pitch": 0.0, "throttle": 0.0}
-        axes[self.axis] = value
-        if self.axis == "throttle":
+        axes: Dict[str, float] = {
+            "yaw": 0.0,
+            "roll": 0.0,
+            "pitch": 0.0,
+            "throttle": 0.0,
+            "altitude": 0.0,
+        }
+        target_axis = self.axis.lower()
+        if target_axis == "altitude":
+            target_axis = "roll"
+        axes[target_axis] = value
+        if target_axis == "roll":
+            axes["altitude"] = value
+        if target_axis == "throttle":
             axes.setdefault("speed", (value + 1.0) * 0.5)
         return axes
 
@@ -61,7 +72,7 @@ class SmoothAxisState:
 
 
 def load_calibration(path: Path | None) -> tuple[Dict[str, float], Dict[str, Action]]:
-    axis_signs = {"yaw": 1.0, "altitude": 1.0, "pitch": 1.0, "throttle": 1.0}
+    axis_signs = {"yaw": 1.0, "roll": 1.0, "pitch": 1.0, "throttle": 1.0}
     actions: Dict[str, Action] = {}
     if not path:
         return axis_signs, actions
@@ -76,8 +87,13 @@ def load_calibration(path: Path | None) -> tuple[Dict[str, float], Dict[str, Act
         axis_data = data.get("axis_signs")
         if isinstance(axis_data, dict):
             for key, value in axis_data.items():
-                if key in axis_signs and isinstance(value, (int, float)):
-                    axis_signs[key] = 1.0 if value >= 0 else -1.0
+                if not isinstance(value, (int, float)):
+                    continue
+                axis_name = str(key).lower()
+                if axis_name == "altitude":
+                    axis_name = "roll"
+                if axis_name in axis_signs:
+                    axis_signs[axis_name] = 1.0 if float(value) >= 0 else -1.0
         action_items = data.get("actions")
         if isinstance(action_items, list):
             for item in action_items:
@@ -91,17 +107,23 @@ def load_calibration(path: Path | None) -> tuple[Dict[str, float], Dict[str, Act
                 if (
                     isinstance(name, str)
                     and isinstance(axis, str)
-                    and axis in axis_signs
                     and isinstance(direction, (int, float))
                 ):
+                    axis_name = axis.lower()
+                    if axis_name == "altitude":
+                        axis_name = "roll"
+                    if axis_name not in axis_signs:
+                        continue
                     actions[name] = Action(
                         name=name,
                         label=str(label),
-                        axis=axis,
+                        axis=axis_name,
                         direction=float(direction),
                         binding=str(binding) if isinstance(binding, str) else None,
                     )
-    return axis_signs, actions
+    axis_signs_with_alias = dict(axis_signs)
+    axis_signs_with_alias["altitude"] = axis_signs["roll"]
+    return axis_signs_with_alias, actions
 
 
 def _split_target_spec(spec: str) -> List[str]:
@@ -179,9 +201,17 @@ class CommandSender:
 
     def send(self, axes: Dict[str, float]) -> Dict[str, float]:
         payload = {"ts": time.time()}
-        for axis in ("yaw", "altitude", "pitch", "throttle"):
-            value = float(axes.get(axis, 0.0))
-            payload[axis] = max(-1.0, min(1.0, value * self.axis_signs.get(axis, 1.0)))
+        roll_value = float(axes.get("roll", axes.get("altitude", 0.0)))
+        axis_values = {
+            "yaw": float(axes.get("yaw", 0.0)),
+            "roll": roll_value,
+            "pitch": float(axes.get("pitch", 0.0)),
+            "throttle": float(axes.get("throttle", axes.get("speed", 0.0))),
+        }
+        for axis, value in axis_values.items():
+            sign = self.axis_signs.get(axis, 1.0)
+            payload[axis] = max(-1.0, min(1.0, value * sign))
+        payload["altitude"] = payload["roll"]
         payload["speed"] = (payload["throttle"] + 1.0) * 0.5
         message = json.dumps(payload)
         encoded = message.encode("utf-8")
@@ -209,7 +239,7 @@ class MockEEGGui:
         action_sequence = list(actions)
         self.actions: Dict[str, Action] = {action.name: action for action in action_sequence}
         self._ordered_actions = action_sequence
-        self._axes = ("yaw", "altitude", "pitch", "throttle")
+        self._axes = ("yaw", "roll", "pitch", "throttle")
         self._build_ui()
         self._binding_map: Dict[str, Action] = {}
         for action in self._ordered_actions:
@@ -342,7 +372,7 @@ class MockEEGGui:
     @staticmethod
     def _format_status(label: str, payload: Dict[str, float]) -> str:
         axes = []
-        for axis in ("yaw", "altitude", "pitch", "throttle"):
+        for axis in ("yaw", "roll", "pitch", "throttle"):
             value = float(payload.get(axis, 0.0))
             axes.append(f"{axis.title()}: {value:+.2f}")
         return f"Sent: {label} | " + "  ".join(axes)
@@ -401,12 +431,12 @@ def main(argv: list[str] | None = None) -> int:
     axis_signs, actions = load_calibration(calibration_path)
     if not actions:
         defaults = {
-            "accelerate": ("Accelerate", "throttle", 1.0, "W"),
-            "decelerate": ("Decelerate", "throttle", -1.0, "S"),
-            "turn_left": ("Turn Left", "yaw", -1.0, "A"),
-            "turn_right": ("Turn Right", "yaw", 1.0, "D"),
-            "climb": ("Climb", "altitude", 1.0, "Q"),
-            "descend": ("Descend", "altitude", -1.0, "E"),
+            "throttle_up": ("Throttle Up", "throttle", 1.0, "W"),
+            "throttle_down": ("Throttle Down", "throttle", -1.0, "S"),
+            "yaw_left": ("Yaw Left", "yaw", -1.0, "A"),
+            "yaw_right": ("Yaw Right", "yaw", 1.0, "D"),
+            "roll_left": ("Roll Left", "roll", -1.0, "Q"),
+            "roll_right": ("Roll Right", "roll", 1.0, "E"),
             "pitch_up": ("Pitch Up", "pitch", 1.0, "I"),
             "pitch_down": ("Pitch Down", "pitch", -1.0, "K"),
         }

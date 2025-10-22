@@ -108,12 +108,19 @@ def _validate_settings(raw: Dict[str, Any]) -> Dict[str, Any]:
     if "throttle" not in gains and "speed" in gains:
         gains = dict(gains)
         gains["throttle"] = gains["speed"]
+    if "roll" not in gains and "altitude" in gains:
+        gains = dict(gains)
+        gains["roll"] = gains["altitude"]
+    if "altitude" not in gains and "roll" in gains:
+        gains = dict(gains)
+        gains["altitude"] = gains["roll"]
     gains_clean = {}
-    for axis in ("yaw", "altitude", "throttle", "pitch"):
+    for axis in ("yaw", "roll", "throttle", "pitch"):
         val = gains.get(axis)
         _ensure(isinstance(val, (int, float)), f"gains.{axis} 必须为数字")
         _ensure(val >= 0, f"gains.{axis} 必须 >= 0")
         gains_clean[axis] = float(val)
+    gains_clean["altitude"] = float(gains.get("altitude", gains_clean["roll"]))
 
     udp_target = raw.get("udp_target")
     _ensure(isinstance(udp_target, (list, tuple)) and len(udp_target) == 2,
@@ -221,7 +228,7 @@ def load_runtime_profile() -> Dict[str, Any]:
 def load_calibration_axis_signs() -> Dict[str, float]:
     """Load axis polarity overrides from the calibration profile if available."""
 
-    axis_signs = {"yaw": 1.0, "altitude": 1.0, "pitch": 1.0, "throttle": 1.0}
+    axis_signs = {"yaw": 1.0, "roll": 1.0, "pitch": 1.0, "throttle": 1.0}
     path = os.environ.get(CALIBRATION_ENV_VAR)
     if not path:
         return axis_signs
@@ -241,9 +248,16 @@ def load_calibration_axis_signs() -> Dict[str, float]:
     raw_signs = data.get("axis_signs") if isinstance(data, dict) else None
     if isinstance(raw_signs, dict):
         for axis, value in raw_signs.items():
-            if axis in axis_signs and isinstance(value, (int, float)):
-                axis_signs[axis] = 1.0 if float(value) >= 0 else -1.0
-    return axis_signs
+            if not isinstance(value, (int, float)):
+                continue
+            axis_name = str(axis).lower()
+            if axis_name == "altitude":
+                axis_name = "roll"
+            if axis_name in axis_signs:
+                axis_signs[axis_name] = 1.0 if float(value) >= 0 else -1.0
+    axis_signs_with_alias = dict(axis_signs)
+    axis_signs_with_alias["altitude"] = axis_signs["roll"]
+    return axis_signs_with_alias
 
 
 def _split_target_spec(spec: str) -> List[str]:
@@ -439,14 +453,20 @@ def main(argv: list[str] | None = None) -> None:
         udp_targets = _collect_udp_targets(udp_target)
 
         runtime_profile = load_runtime_profile()
-        axis_signs = {"yaw": 1.0, "altitude": 1.0, "throttle": 1.0, "pitch": 1.0}
+        axis_signs = {"yaw": 1.0, "roll": 1.0, "throttle": 1.0, "pitch": 1.0}
         profile_signs = runtime_profile.get("axis_signs")
         if isinstance(profile_signs, dict):
             for axis, value in profile_signs.items():
-                if axis in axis_signs and isinstance(value, (int, float)):
-                    axis_signs[axis] = 1.0 if float(value) >= 0 else -1.0
+                if not isinstance(value, (int, float)):
+                    continue
+                axis_name = str(axis).lower()
+                if axis_name == "altitude":
+                    axis_name = "roll"
+                if axis_name in axis_signs:
+                    axis_signs[axis_name] = 1.0 if float(value) >= 0 else -1.0
         calibration_signs = load_calibration_axis_signs()
         axis_signs.update(calibration_signs)
+        axis_signs.setdefault("altitude", axis_signs.get("roll", 1.0))
         overrides_msg = ", ".join(
             f"{axis}={'+1' if sign >= 0 else '-1'}" for axis, sign in axis_signs.items()
         )
@@ -560,7 +580,7 @@ def main(argv: list[str] | None = None) -> None:
 
         # ============ 5. 实时控制循环 ============
         sYaw = Ewma(alpha)
-        sAlt = Ewma(alpha)
+        sRoll = Ewma(alpha)
         sThr = Ewma(alpha)
         sPit = Ewma(alpha)
         hop_samp = int(max(1, hop * fs))
@@ -592,7 +612,7 @@ def main(argv: list[str] | None = None) -> None:
             cz_beta = bandpower(cz, fs, *BE)
             cz_total = cz_mu + cz_beta
             erd = (B_CZ - cz_total) / (B_CZ + 1e-9)
-            alt = clamp(gains["altitude"] * sAlt.step(erd))
+            roll = clamp(gains["roll"] * sRoll.step(erd))
 
             pitch_raw = (cz_beta - B_CZ_BE) / (B_CZ_BE + 1e-9) - (cz_mu - B_CZ_MU) / (B_CZ_MU + 1e-9)
             pitch_value = gains["pitch"] * sPit.step(pitch_raw)
@@ -607,19 +627,20 @@ def main(argv: list[str] | None = None) -> None:
 
             if abs(yaw) < dead:
                 yaw = 0.0
-            if abs(alt) < dead:
-                alt = 0.0
+            if abs(roll) < dead:
+                roll = 0.0
             if abs(pitch) < dead:
                 pitch = 0.0
             if abs(throttle) < dead:
                 throttle = 0.0
 
             yaw *= axis_signs.get("yaw", 1.0)
-            alt *= axis_signs.get("altitude", 1.0)
+            roll *= axis_signs.get("roll", axis_signs.get("altitude", 1.0))
 
             msg = {
                 "yaw": round(yaw, 4),
-                "altitude": round(alt, 4),
+                "roll": round(roll, 4),
+                "altitude": round(roll, 4),
                 "pitch": round(pitch, 4),
                 "throttle": round(throttle, 4),
                 "speed": round((throttle + 1.0) * 0.5, 4),
@@ -633,7 +654,7 @@ def main(argv: list[str] | None = None) -> None:
                     print(f"[WARN] Failed to send UDP packet to {target}: {exc}")
 
             print(
-                f"Yaw={yaw:+.2f} | Alt={alt:+.2f} | Pitch={pitch:+.2f} | Throttle={throttle:+.2f}",
+                f"Yaw={yaw:+.2f} | Roll={roll:+.2f} | Pitch={pitch:+.2f} | Throttle={throttle:+.2f}",
                 end="\r",
             )
 
