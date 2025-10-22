@@ -258,7 +258,9 @@ class MockEEGGui:
             self._current_label = active.label
         else:
             state = self._axis_states[action.axis]
-            state.hold()
+            state.target = 0.0
+            if not any(self._axis_action_stack[axis] for axis in self._axes):
+                self._current_label = "Neutral"
 
     def _send_neutral(self) -> None:
         self._pressed_keys.clear()
@@ -285,7 +287,7 @@ class MockEEGGui:
     def _tick(self) -> None:
         dt = self._update_interval_ms / 1000.0
         sensitivity = max(1, int(self._sensitivity_var.get()))
-        rate = 0.05 * sensitivity
+        rate = 0.5 * sensitivity
         changed = False
         for axis, state in self._axis_states.items():
             changed = state.step(rate, dt) or changed
