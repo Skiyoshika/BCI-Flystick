@@ -228,6 +228,37 @@ def main(argv: list[str] | None = None) -> int:
         dashboard_mode = args.dashboard
         launch_dashboard = dashboard_mode != "none"
 
+    used_ports: set[int] = {udp_port}
+    fanout_targets: list[tuple[str, int]] = [(udp_host, udp_port)]
+    next_port = udp_port + 1
+
+    def reserve_extra_port() -> int:
+        nonlocal next_port
+        while next_port <= 65535 and next_port in used_ports:
+            next_port += 1
+        if next_port > 65535:
+            raise RuntimeError("No free UDP port available for telemetry fan-out")
+        port = next_port
+        used_ports.add(port)
+        next_port += 1
+        return port
+
+    dashboard_port: int | None = None
+    if launch_dashboard:
+        try:
+            dashboard_port = reserve_extra_port()
+        except RuntimeError:
+            print(
+                _localise(
+                    language,
+                    "No free UDP port available for telemetry dashboard fan-out.",
+                    "没有可用的 UDP 端口用于遥测分发。",
+                ),
+                file=sys.stderr,
+            )
+            return 1
+        fanout_targets.append((udp_host, dashboard_port))
+
     env = os.environ.copy()
     env["BCI_FLYSTICK_PROFILE"] = str(profile_path.resolve())
     if calibration_path:
@@ -235,6 +266,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         env.pop(CALIBRATION_ENV_VAR, None)
     env[MODE_ENV_VAR] = profile_mode
+    env["BCI_FLYSTICK_UDP_FANOUT"] = ",".join(f"{host}:{port}" for host, port in fanout_targets)
 
     processes: list[ManagedProcess] = []
     try:
@@ -343,34 +375,36 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         if launch_dashboard and dashboard_mode == "terminal":
+            dashboard_args = [
+                sys.executable,
+                "-m",
+                "python.udp_dashboard",
+                "--host",
+                udp_host,
+                "--port",
+                str(dashboard_port if dashboard_port is not None else udp_port),
+            ]
             processes.append(
                 _spawn(
                     "udp_dashboard",
-                    [
-                        sys.executable,
-                        "-m",
-                        "python.udp_dashboard",
-                        "--host",
-                        udp_host,
-                        "--port",
-                        str(udp_port),
-                    ],
+                    dashboard_args,
                     env=env,
                 )
             )
         elif launch_dashboard and dashboard_mode == "gui":
+            dashboard_args = [
+                sys.executable,
+                "-m",
+                "python.gui_dashboard",
+                "--host",
+                udp_host,
+                "--port",
+                str(dashboard_port if dashboard_port is not None else udp_port),
+            ]
             processes.append(
                 _spawn(
                     "gui_dashboard",
-                    [
-                        sys.executable,
-                        "-m",
-                        "python.gui_dashboard",
-                        "--host",
-                        udp_host,
-                        "--port",
-                        str(udp_port),
-                    ],
+                    dashboard_args,
                     env=env,
                 )
             )
