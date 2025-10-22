@@ -221,9 +221,9 @@ def main(argv: list[str] | None = None) -> None:
                 )
 
             try:
-                j.set_axis(pyvjoy.HID_USAGE_X, axes["yaw"])
-                j.set_axis(pyvjoy.HID_USAGE_Y, axes["altitude"])
-                j.set_axis(pyvjoy.HID_USAGE_Z, axes["throttle"])
+                j.set_axis(pyvjoy.HID_USAGE_X, axes["throttle"])
+                j.set_axis(pyvjoy.HID_USAGE_Y, axes["yaw"])
+                j.set_axis(pyvjoy.HID_USAGE_Z, axes["altitude"])
                 j.set_axis(pyvjoy.HID_USAGE_RX, axes["pitch"])
             except pyvjoy.vJoyException as exc:  # type: ignore[attr-defined]
                 print(f"[ERROR] vJoy update failed: {exc}")

@@ -275,7 +275,7 @@ GitHub Actions runs the same workflow automatically on each push or pull request
 
 ## Common Scenarios
 1. **Flight simulators (e.g., PX4 SITL + QGroundControl)**
-   - Map axes: X → Yaw, Y → Altitude, Z → Throttle, rotary → Pitch.
+   - Map axes: X → Throttle, Y → Yaw, Z → Altitude, rotary → Pitch.
    - Tune dead zones to 5–10% to minimize drift.
 2. **Real drone flights**
    - Validate thoroughly in simulation before connecting a real aircraft.
