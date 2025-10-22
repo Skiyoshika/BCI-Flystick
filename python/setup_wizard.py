@@ -77,12 +77,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "action_decelerate": "Decelerate (reduce forward speed)",
         "action_turn_left": "Turn Left (yaw left)",
         "action_turn_right": "Turn Right (yaw right)",
-        "action_climb": "Climb (increase altitude)",
-        "action_descend": "Descend (lower altitude)",
+        "action_roll_left": "Roll Left (bank left)",
+        "action_roll_right": "Roll Right (bank right)",
         "action_pitch_up": "Pitch Up (raise nose)",
         "action_pitch_down": "Pitch Down (lower nose)",
         "axis_yaw": "Yaw (left/right)",
-        "axis_altitude": "Altitude (up/down)",
+        "axis_roll": "Roll (bank left/right)",
         "axis_throttle": "Throttle (forward speed)",
         "axis_pitch": "Pitch (nose up/down)",
         "tkinter_check": "Checking Tkinter GUI support...",
@@ -137,12 +137,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "action_decelerate": "减速（降低前进速度）",
         "action_turn_left": "左转（向左偏航）",
         "action_turn_right": "右转（向右偏航）",
-        "action_climb": "上升（提升高度）",
-        "action_descend": "下降（降低高度）",
+        "action_roll_left": "左横滚（向左倾斜）",
+        "action_roll_right": "右横滚（向右倾斜）",
         "action_pitch_up": "抬头（机头上扬）",
         "action_pitch_down": "低头（机头下俯）",
         "axis_yaw": "航向（左/右）",
-        "axis_altitude": "高度（上/下）",
+        "axis_roll": "横滚（左右倾斜）",
         "axis_throttle": "油门（前进速度）",
         "axis_pitch": "俯仰（机头上下）",
         "tkinter_check": "正在检查 Tkinter 图形界面支持...",
@@ -159,8 +159,8 @@ CALIBRATION_ACTIONS = [
     ("decelerate", "action_decelerate", "throttle", -1.0),
     ("turn_left", "action_turn_left", "yaw", -1.0),
     ("turn_right", "action_turn_right", "yaw", 1.0),
-    ("climb", "action_climb", "altitude", 1.0),
-    ("descend", "action_descend", "altitude", -1.0),
+    ("roll_left", "action_roll_left", "roll", -1.0),
+    ("roll_right", "action_roll_right", "roll", 1.0),
     ("pitch_up", "action_pitch_up", "pitch", 1.0),
     ("pitch_down", "action_pitch_down", "pitch", -1.0),
 ]
@@ -391,15 +391,21 @@ class Wizard:
 
     def _generate_mock_calibration(self, profile_name: str) -> tuple[Path, dict[str, float]]:
         timestamp = time.time()
-        axis_signs = {"yaw": 1.0, "altitude": 1.0, "throttle": 1.0, "pitch": 1.0}
+        axis_signs = {
+            "yaw": 1.0,
+            "roll": 1.0,
+            "throttle": 1.0,
+            "pitch": 1.0,
+            "altitude": 1.0,
+        }
         actions = []
         default_bindings = {
             "accelerate": "W",
             "decelerate": "S",
             "turn_left": "A",
             "turn_right": "D",
-            "climb": "Q",
-            "descend": "E",
+            "roll_left": "Q",
+            "roll_right": "E",
             "pitch_up": "I",
             "pitch_down": "K",
         }
@@ -430,7 +436,13 @@ class Wizard:
         print()
         print(self.t("calibration_intro"))
         records = []
-        axis_signs = {"yaw": 1.0, "altitude": 1.0, "throttle": 1.0, "pitch": 1.0}
+        axis_signs = {
+            "yaw": 1.0,
+            "roll": 1.0,
+            "throttle": 1.0,
+            "pitch": 1.0,
+            "altitude": 1.0,
+        }
         for name, label_key, axis, direction in CALIBRATION_ACTIONS:
             action_label = self.t(label_key)
             input(self.t("calibration_prepare").format(action=action_label))
@@ -450,7 +462,7 @@ class Wizard:
 
         for axis, label_key in (
             ("yaw", "axis_yaw"),
-            ("altitude", "axis_altitude"),
+            ("roll", "axis_roll"),
             ("throttle", "axis_throttle"),
             ("pitch", "axis_pitch"),
         ):
