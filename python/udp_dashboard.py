@@ -60,10 +60,10 @@ def render_bar(value: float, label: str, width: int = 24) -> Table:
 
 def build_layout(latest: Dict[str, float], last_update: float, count: int) -> Panel:
     table = Table.grid(padding=(0, 1), expand=True)
-    table.add_row(render_bar(latest.get("yaw", 0.0), "Yaw"))
-    table.add_row(render_bar(latest.get("altitude", 0.0), "Altitude"))
-    table.add_row(render_bar(latest.get("pitch", 0.0), "Pitch"))
-    table.add_row(render_bar(latest.get("throttle", 0.0), "Throttle"))
+    table.add_row(render_bar(latest.get("throttle", 0.0), "Throttle / 油门"))
+    table.add_row(render_bar(latest.get("roll", 0.0), "Roll / 横滚"))
+    table.add_row(render_bar(latest.get("pitch", 0.0), "Pitch / 俯仰"))
+    table.add_row(render_bar(latest.get("yaw", 0.0), "Yaw / 偏航"))
 
     age = time.time() - last_update if last_update else float("inf")
     footer = f"Samples: {count} | Last packet: {age:.1f}s ago"
@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> None:
         return
     sock.settimeout(0.3)
 
-    latest: Dict[str, float] = {"yaw": 0.0, "altitude": 0.0, "pitch": 0.0, "throttle": 0.0}
+    latest: Dict[str, float] = {"throttle": 0.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
     last_update = 0.0
     received = 0
 
@@ -115,11 +115,13 @@ def main(argv: list[str] | None = None) -> None:
                 except json.JSONDecodeError:
                     continue
 
-                for key in ("yaw", "altitude", "pitch", "throttle"):
+                for key in ("throttle", "roll", "pitch", "yaw"):
                     if key in payload:
                         latest[key] = float(payload[key])
                 if "throttle" not in payload and "speed" in payload:
                     latest["throttle"] = float(payload["speed"]) * 2.0 - 1.0
+                if "roll" not in payload and "altitude" in payload:
+                    latest["roll"] = float(payload["altitude"])
                 last_update = time.time()
                 received += 1
                 live.update(build_layout(latest, last_update, received))

@@ -36,16 +36,16 @@ def test_extract_axes_standard_payload() -> None:
 def test_extract_axes_with_aliases() -> None:
     payload = {
         "X": 1.0,
-        "Z": 0.25,
+        "Y": 0.25,
+        "Z": -0.5,
         "RX": 0.75,
-        "RZ": -0.5,
         "speed": 0.6,
     }
     axes = _extract_axes(payload)
     assert axes["roll"] == normalize(1.0)
-    assert axes["pitch"] == normalize(0.75)
+    assert axes["pitch"] == normalize(-0.5)
     assert axes["throttle"] == normalize(0.25)
-    assert axes["yaw"] == normalize(-0.5)
+    assert axes["yaw"] == normalize(0.75)
 
 
 def test_extract_axes_speed_fallback() -> None:
