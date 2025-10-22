@@ -14,6 +14,12 @@ It decodes **motor-imagery (μ/β)** and **visual-attention (α/SSVEP)** pattern
 > • **Pitch (nose up/down)** ← Cz μ vs β balance dynamics
 > • **Throttle (accelerate/decelerate)** ← Oz α power decrease or SSVEP frequency response
 
+## Audience
+
+- Researchers and students who need a turnkey brain-controlled flight experiment setup.
+- Developers integrating BCI-driven joysticks into simulators, drone platforms, or games.
+- Engineers seeking architectural insight for downstream customization.
+
 ---
 
 ## Key Features
@@ -167,6 +173,23 @@ Edit `config/channel_map.json`:
 | `calibration_sec` | float | Baseline calibration duration (seconds) |
 | `udp_target` | [str, int] | Address and port of the downstream receiver |
 
+### Profiles created by the setup wizard
+
+Running the wizard stores personalized profiles under `config/user_profiles/`. The launcher remembers the most recent profile path in `.last_profile`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `language` | str | Wizard language (`en` or `zh`) for runtime prompts |
+| `control_backend` | str | `vigem` (Windows vJoy/ViGEm) or `uinput` (Linux virtual joystick) |
+| `vjoy_device_id` | int | Virtual joystick ID for the Windows backend (default `1`) |
+| `udp_host` / `udp_port` | str / int | Shared UDP endpoint for the controller, joystick bridge, and dashboards |
+| `invert_pitch` | bool | Flip the pitch axis at runtime |
+| `throttle_scale` | float | Scale throttle sensitivity (0.1–2.0) to match your simulator |
+| `mock_mode` | bool | Start in mock EEG mode even if hardware is available |
+| `launch_dashboard` | bool | Automatically open the terminal telemetry dashboard on startup |
+
+> On Windows you can temporarily override the vJoy device ID by setting the `BCI_FLYSTICK_VJOY_ID` environment variable instead of editing the profile file.
+
 5️⃣ Launch the orchestrated runtime
 ```bash
 # Start with the last-used profile
@@ -177,6 +200,7 @@ python -m python.main --config config/user_profiles/my_profile.json
 
 # Useful overrides
 python -m python.main --mock           # Force mock EEG data
+python -m python.main --hardware       # Force real OpenBCI hardware
 python -m python.main --no-dashboard   # Disable the terminal joystick dashboard
 python -m python.main --dashboard gui  # Launch the graphical telemetry window directly
 ```
@@ -184,14 +208,21 @@ python -m python.main --dashboard gui  # Launch the graphical telemetry window d
 
 6️⃣ Manual Startup (advanced / debugging)
 ```bash
-python python/bci_controller.py              # Connect to real hardware
-python python/bci_controller.py --mock       # Use simulated EEG
-python python/feed_vjoy.py --host 0.0.0.0    # Windows vJoy
-sudo python python/feed_uinput.py            # Linux uinput
-python python/udp_dashboard.py               # Terminal joystick dashboard
-python python/udp_dashboard.py --once        # Exit after receiving the first frame
-python python/gui_dashboard.py               # Graphical joystick telemetry
+# Controller (hardware / mock)
+python python/bci_controller.py --udp-host 127.0.0.1 --udp-port 5005
+python python/bci_controller.py --mock --duration 30
+
+# Windows vJoy / ViGEm bridge
+python python/feed_vjoy.py --host 127.0.0.1 --port 5005 --device-id 1
+
+# Linux uinput bridge
+sudo python python/feed_uinput.py --host 127.0.0.1 --port 5005
+
+# Terminal telemetry dashboard
+python python/udp_dashboard.py --host 127.0.0.1 --port 5005
 ```
+
+Ensure every process points to the same UDP host and port. Close each terminal manually after debugging.
 
 ### Hardware-free console test pack
 
@@ -215,9 +246,11 @@ python -m python.mock_command_gui --calibration config/calibration_profiles/mock
 ```
 
 This lets you verify axis movement even on systems where vJoy/uinput is not yet
-active.
+active. Test-mode joystick commands now hold their last position until you send
+another action or press the `Neutral` reset button in the GUI, which makes it
+easier to observe sustained motion in vJoy.
 
-## Local Validation
+## Self-check & Tests
 
 The repository offers the following self-check commands:
 
@@ -232,28 +265,32 @@ pytest
 cargo test --manifest-path rust/bci_receiver/Cargo.toml
 ```
 
-GitHub Actions runs the same workflow automatically on each push or pull request to ensure the pipeline stays green.
+GitHub Actions runs the same workflow automatically on each push or pull request to ensure the pipeline stays green. For custom pipelines, reference `.github/workflows` or adapt the commands above.
 
-## Flight Simulation Integration
-**QGroundControl / PX4 SITL**
+## Common Scenarios
+1. **Flight simulators (e.g., PX4 SITL + QGroundControl)**
+   - Map axes: X → Yaw, Y → Altitude, Z → Throttle, rotary → Pitch.
+   - Tune dead zones to 5–10% to minimize drift.
+2. **Real drone flights**
+   - Validate thoroughly in simulation before connecting a real aircraft.
+   - Keep a physical emergency cutoff switch for safety.
+3. **Research experiment logging**
+   - Extend `python/loggers.py` to add experiment labels and custom storage formats.
 
-Bind axes:
+## Troubleshooting
+| Issue | Likely cause | Resolution |
+|-------|--------------|------------|
+| Cannot reach the board | Incorrect serial port; insufficient permissions | Verify `serial_port`; on Linux run `sudo usermod -a -G dialout $USER` and log back in |
+| Joystick axes drifting | Poor electrode contact; calibration skipped | Check electrode impedance and stay relaxed during the baseline stage |
+| vJoy not detected | Driver missing or outdated | Reinstall vJoy and confirm the device in Device Manager |
+| uinput access denied | Permissions missing | Add rules under `/etc/udev/rules.d` or run the bridge with `sudo` |
+| Python process exits early | Missing config or malformed JSON/YAML; profile not generated | Validate with `python -m json.tool config/channel_map.json` and `yamllint config/settings.yaml`; run `python -m python.main --wizard` if prompted “No profile specified” |
 
-X → Yaw
-
-Y → Altitude
-
-Z → Throttle (Speed)
-
-Calibrate sensitivity & dead zones (recommended 5–10%).
-
-**Mission Planner (ArduPilot)**
-
-Enable Joystick Input and assign channels.
-
-**AirSim / VelociDrone**
-
-Select Controller / Joystick mode; vJoy/uinput is detected automatically.
+## Recommendations for Further Development
+- **Modular structure:** Core signal-processing logic lives under `python/`; extend or replace components module by module.
+- **Configuration-first:** Adjust values in `config/` rather than hard-coding constants inside the scripts.
+- **Logging:** Add experiment tags and performance metrics in the controller to support reproducible research.
+- **Multimodal extensions:** Incorporate eye-tracking or EMG by extending the UDP schema with additional axes or message formats.
 
 ## Project Structure
 ```text
@@ -265,25 +302,21 @@ bci-flystick/
 ├─ scripts/     # Quick start helpers
 └─ docs/        # Documentation and experiment notes
 ```
-## License
-MIT License – Open-source, free to modify and distribute.
-
-You may freely use this project for research, education, or development.
+## License & Citation
+BCI-Flystick is released under the MIT License (see the `LICENSE` file in the repository root). When using the project in papers or products, cite the GitHub repository and note the version you rely on.
 
 ## Contact
-**Author:** @Skiyoshika
-
-**Email:** hiuramika122@gmail.com
-
-**Keywords:** Brain–Computer Interface, OpenBCI, EEG, Drone Control, vJoy, AirSim, PX4
+- **Author:** @Skiyoshika
+- **Email:** hiuramika122@gmail.com
+- **Keywords:** Brain–Computer Interface, OpenBCI, EEG, Drone Control, vJoy, AirSim, PX4
 
 ## Acknowledgements
-OpenBCI Cyton Board
+- OpenBCI Cyton Board
+- BrainFlow SDK
+- vJoy Virtual Joystick Driver
+- PX4 SITL & QGroundControl
+- AirSim (Microsoft)
 
-BrainFlow SDK
+---
 
-vJoy Virtual Joystick Driver
-
-PX4 SITL & QGroundControl
-
-AirSim (Microsoft)
+If you encounter issues during deployment, open a GitHub Issue or contribute a pull request with fixes.
