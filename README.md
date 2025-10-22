@@ -127,6 +127,12 @@ pip install -r python/requirements.txt
 
 # Later updates inside the virtualenv
 pip install --upgrade -r python/requirements.txt
+
+# Update an existing checkout without recloning (inside the repo root)
+git pull --ff-only
+source .venv/bin/activate                # macOS / Linux
+& .\\.venv\\Scripts\\Activate.ps1          # Windows PowerShell
+pip install --upgrade -r python/requirements.txt
 ```
 
 > ℹ️ **PowerShell Tip:** If PowerShell opens `Activate.ps1` in an editor instead of running it, make sure the command starts with the call operator `&` (for example `& .\.venv\Scripts\Activate.ps1`).
