@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "python"))
 
 from feed_uinput import m01, m11  # type: ignore
-from feed_vjoy import normalize, _extract_axes  # type: ignore
+from feed_vjoy import normalize, _extract_axes, _fill_missing_axes  # type: ignore
 
 
 def test_normalize_range() -> None:
@@ -51,6 +51,29 @@ def test_extract_axes_speed_fallback() -> None:
     payload = {"speed": 0.6}
     axes = _extract_axes(payload)
     assert axes["throttle"] == normalize(0.6)
+
+
+def test_fill_missing_axes_defaults_to_neutral() -> None:
+    neutral = {axis: normalize(0.0) for axis in ("yaw", "altitude", "throttle", "pitch")}
+    last_known = dict(neutral)
+
+    update = {
+        "yaw": normalize(0.25),
+        "altitude": None,
+        "throttle": normalize(-1.0),
+        "pitch": None,
+    }
+
+    filled, missing = _fill_missing_axes(update, last_known, neutral)
+
+    assert filled["yaw"] == normalize(0.25)
+    assert filled["altitude"] == neutral["altitude"]
+    assert filled["throttle"] == normalize(-1.0)
+    assert filled["pitch"] == neutral["pitch"]
+    assert missing == ["altitude", "pitch"]
+    # Ensure last_known was updated for axes with new readings and fallback
+    assert last_known["yaw"] == normalize(0.25)
+    assert last_known["altitude"] == neutral["altitude"]
 
 
 def test_uinput_mappings() -> None:
