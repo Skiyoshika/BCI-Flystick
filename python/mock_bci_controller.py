@@ -1,12 +1,61 @@
 # python/mock_bci_controller.py
 # -*- coding: utf-8 -*-
 # Mock BCI controller: generates synthetic 3-axis commands over UDP
-import time, json, socket, math, random
+import time, json, socket, math, random, os
+from typing import Iterable, List, Tuple
 
-UDP_TARGET = ("127.0.0.1", 5005)
+def _split_target_spec(spec: str) -> List[str]:
+    parts: List[str] = []
+    for entry in spec.replace(";", ",").split(","):
+        value = entry.strip()
+        if value:
+            parts.append(value)
+    return parts
+
+
+def _parse_target_entries(entries: Iterable[str], default_host: str) -> List[Tuple[str, int]]:
+    targets: List[Tuple[str, int]] = []
+    for entry in entries:
+        host_part, sep, port_part = entry.rpartition(":")
+        if sep:
+            host = host_part.strip() or default_host
+            port_text = port_part.strip()
+        else:
+            host = default_host
+            port_text = entry.strip()
+        if not host:
+            continue
+        try:
+            port = int(port_text, 10)
+        except ValueError:
+            continue
+        if not (0 < port < 65536):
+            continue
+        targets.append((host, port))
+    return targets
+
+
+def _deduplicate_targets(targets: Iterable[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    seen: set[Tuple[str, int]] = set()
+    unique: List[Tuple[str, int]] = []
+    for host, port in targets:
+        key = (host, port)
+        if key in seen:
+            continue
+        unique.append(key)
+        seen.add(key)
+    return unique
+
+
+UDP_PRIMARY = ("127.0.0.1", 5005)
+env_spec = os.environ.get("BCI_FLYSTICK_UDP_FANOUT", "")
+extras = _parse_target_entries(_split_target_spec(env_spec), UDP_PRIMARY[0]) if env_spec else []
+UDP_TARGETS = _deduplicate_targets([UDP_PRIMARY, *extras])
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-print("[MOCK] Sending synthetic Yaw/Altitude/Speed to", UDP_TARGET)
+print("[MOCK] Sending synthetic Yaw/Altitude/Speed to:")
+for host, port in UDP_TARGETS:
+    print(f"    - {(host, port)}")
 t0 = time.time()
 while True:
     t = time.time() - t0
@@ -29,6 +78,8 @@ while True:
         "speed": round((thr + 1.0) * 0.5, 4),
         "ts": time.time(),
     }
-    sock.sendto(json.dumps(msg).encode("utf-8"), UDP_TARGET)
+    encoded = json.dumps(msg).encode("utf-8")
+    for target in UDP_TARGETS:
+        sock.sendto(encoded, target)
     print(msg)
     time.sleep(0.05)  # 20 Hz

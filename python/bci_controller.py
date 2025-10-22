@@ -16,7 +16,7 @@ import socket
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 import numpy as np
 from scipy import signal
@@ -245,6 +245,58 @@ def load_calibration_axis_signs() -> Dict[str, float]:
                 axis_signs[axis] = 1.0 if float(value) >= 0 else -1.0
     return axis_signs
 
+
+def _split_target_spec(spec: str) -> List[str]:
+    items: List[str] = []
+    for part in spec.replace(";", ",").split(","):
+        value = part.strip()
+        if value:
+            items.append(value)
+    return items
+
+
+def _parse_target_entries(entries: Iterable[str], default_host: str) -> List[Tuple[str, int]]:
+    targets: List[Tuple[str, int]] = []
+    for entry in entries:
+        if not entry:
+            continue
+        host_part, sep, port_part = entry.rpartition(":")
+        if sep:
+            host = host_part.strip() or default_host
+            port_text = port_part.strip()
+        else:
+            host = default_host
+            port_text = entry.strip()
+        if not host:
+            continue
+        try:
+            port = int(port_text, 10)
+        except ValueError:
+            continue
+        if not (0 < port < 65536):
+            continue
+        targets.append((host, port))
+    return targets
+
+
+def _deduplicate_targets(targets: Iterable[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    seen: set[Tuple[str, int]] = set()
+    unique: List[Tuple[str, int]] = []
+    for host, port in targets:
+        key = (host, port)
+        if key in seen:
+            continue
+        unique.append(key)
+        seen.add(key)
+    return unique
+
+
+def _collect_udp_targets(primary: Tuple[str, int]) -> List[Tuple[str, int]]:
+    spec = os.environ.get("BCI_FLYSTICK_UDP_FANOUT", "")
+    extras = _parse_target_entries(_split_target_spec(spec), primary[0]) if spec else []
+    return _deduplicate_targets([primary, *extras])
+
+
 class Ewma:
     """指数加权移动平均滤波器"""
     def __init__(self, a):
@@ -384,6 +436,7 @@ def main(argv: list[str] | None = None) -> None:
             udp_target = (args.udp_host, udp_target[1])
         if args.udp_port:
             udp_target = (udp_target[0], args.udp_port)
+        udp_targets = _collect_udp_targets(udp_target)
 
         runtime_profile = load_runtime_profile()
         axis_signs = {"yaw": 1.0, "altitude": 1.0, "throttle": 1.0, "pitch": 1.0}
@@ -462,7 +515,12 @@ def main(argv: list[str] | None = None) -> None:
 
         # ============ 3. 初始化 UDP ============
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        print(f"[INFO] UDP target: {udp_target}")
+        if len(udp_targets) == 1:
+            print(f"[INFO] UDP target: {udp_targets[0]}")
+        else:
+            print("[INFO] UDP fan-out targets:")
+            for host, port in udp_targets:
+                print(f"       - {host}:{port}")
 
         # ============ 4. 基线校准 ============
         print(f"[INFO] Calibrating baseline ({cfg['calibration_sec']}s)...")
@@ -567,7 +625,12 @@ def main(argv: list[str] | None = None) -> None:
                 "speed": round((throttle + 1.0) * 0.5, 4),
                 "ts": time.time(),
             }
-            sock.sendto(json.dumps(msg).encode("utf-8"), udp_target)
+            encoded = json.dumps(msg).encode("utf-8")
+            for target in udp_targets:
+                try:
+                    sock.sendto(encoded, target)
+                except OSError as exc:
+                    print(f"[WARN] Failed to send UDP packet to {target}: {exc}")
 
             print(
                 f"Yaw={yaw:+.2f} | Alt={alt:+.2f} | Pitch={pitch:+.2f} | Throttle={throttle:+.2f}",

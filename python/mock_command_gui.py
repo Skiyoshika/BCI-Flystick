@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import socket
 import time
 import tkinter as tk
@@ -10,7 +11,7 @@ from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from tkinter import ttk
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 5005
@@ -103,6 +104,58 @@ def load_calibration(path: Path | None) -> tuple[Dict[str, float], Dict[str, Act
     return axis_signs, actions
 
 
+def _split_target_spec(spec: str) -> List[str]:
+    items = []
+    for part in spec.replace(";", ",").split(","):
+        value = part.strip()
+        if value:
+            items.append(value)
+    return items
+
+
+def _parse_target_entries(entries: Sequence[str], default_host: str) -> List[Tuple[str, int]]:
+    targets: List[Tuple[str, int]] = []
+    for entry in entries:
+        if not entry:
+            continue
+        host_part, sep, port_part = entry.rpartition(":")
+        if sep:
+            host = host_part.strip() or default_host
+            port_text = port_part.strip()
+        else:
+            host = default_host
+            port_text = entry.strip()
+        if not host:
+            continue
+        try:
+            port = int(port_text, 10)
+        except ValueError:
+            continue
+        if not (0 < port < 65536):
+            continue
+        targets.append((host, port))
+    return targets
+
+
+def _deduplicate_targets(targets: Iterable[Tuple[str, int]]) -> List[Tuple[str, int]]:
+    seen: set[Tuple[str, int]] = set()
+    unique: List[Tuple[str, int]] = []
+    for host, port in targets:
+        key = (host, port)
+        if key in seen:
+            continue
+        unique.append(key)
+        seen.add(key)
+    return unique
+
+
+def _parse_env_targets(default_host: str) -> List[Tuple[str, int]]:
+    spec = os.environ.get("BCI_FLYSTICK_UDP_FANOUT", "")
+    if not spec:
+        return []
+    return _parse_target_entries(_split_target_spec(spec), default_host)
+
+
 class CommandSender:
     def __init__(
         self,
@@ -111,12 +164,18 @@ class CommandSender:
         *,
         axis_signs: Dict[str, float],
         echo: bool = False,
+        extra_targets: Iterable[Tuple[str, int]] | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.axis_signs = axis_signs
         self.echo = echo
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        targets: List[Tuple[str, int]] = [(host, port)]
+        if extra_targets:
+            targets.extend(extra_targets)
+        targets.extend(_parse_env_targets(host))
+        self.targets = _deduplicate_targets(targets)
 
     def send(self, axes: Dict[str, float]) -> Dict[str, float]:
         payload = {"ts": time.time()}
@@ -125,9 +184,16 @@ class CommandSender:
             payload[axis] = max(-1.0, min(1.0, value * self.axis_signs.get(axis, 1.0)))
         payload["speed"] = (payload["throttle"] + 1.0) * 0.5
         message = json.dumps(payload)
-        self.socket.sendto(message.encode("utf-8"), (self.host, self.port))
+        encoded = message.encode("utf-8")
+        for target in self.targets:
+            try:
+                self.socket.sendto(encoded, target)
+            except OSError as exc:
+                if self.echo:
+                    print(f"[WARN] Failed to send to {target}: {exc}")
         if self.echo:
-            print(f"Sent UDP payload: {message}")
+            sinks = ", ".join(f"{host}:{port}" for host, port in self.targets)
+            print(f"Sent UDP payload: {message} -> [{sinks}]")
         return payload
 
 
@@ -319,6 +385,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Print every UDP payload to the console for debugging",
     )
+    parser.add_argument(
+        "--fanout",
+        action="append",
+        default=[],
+        metavar="HOST:PORT",
+        help="Additional UDP sinks to mirror commands to. May be specified multiple times.",
+    )
     return parser.parse_args(argv)
 
 
@@ -342,7 +415,14 @@ def main(argv: list[str] | None = None) -> int:
                 name=name, label=label, axis=axis, direction=direction, binding=binding
             )
 
-    sender = CommandSender(args.host, args.port, axis_signs=axis_signs, echo=args.echo)
+    extra_targets = _parse_target_entries(args.fanout, args.host)
+    sender = CommandSender(
+        args.host,
+        args.port,
+        axis_signs=axis_signs,
+        echo=args.echo,
+        extra_targets=extra_targets,
+    )
     root = tk.Tk()
     app = MockEEGGui(root, sender, actions.values())
     try:
