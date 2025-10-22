@@ -127,7 +127,7 @@ pip install --upgrade -r python/requirements.txt
 
 3️⃣ Run the guided setup wizard (optional but recommended)
 ```bash
-python -m python.main --wizard               # Add --wizard-language zh for Chinese prompts
+python -m python.main --wizard --wizard-language en              # Add --wizard-language zh for Chinese prompts
 ```
 The refreshed wizard first asks whether you want to start in **test mode** (simulated EEG) or **first-time calibration** (real EEG hardware). It still checks Python/driver prerequisites, guides you through joystick backend selection, UDP host/port, throttle scaling and dashboard preferences. Profiles are saved under `config/user_profiles/` and reused automatically by the runtime launcher, while calibration data lives in `config/calibration_profiles/`.
 
