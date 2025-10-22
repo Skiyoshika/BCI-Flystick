@@ -86,22 +86,25 @@ def _extract_axes(payload: Mapping[str, Any]) -> Dict[str, Optional[int]]:
     ``pitch`` and ``yaw``. For compatibility with older payload shapes we
     accept a few aliases (e.g. ``altitude`` for roll, ``x``/``y``/``z`` for the
     primary axes, and ``speed`` as a throttle substitute). All lookups are
-    case-insensitive.
+    case-insensitive. The aliases also mirror the historical axis order so
+    legacy consumers that still rely on ``x``/``y``/``z`` continue to function
+    despite the updated joystick binding (Y → throttle, X → roll, Z → pitch,
+    RX → yaw).
     """
 
     lowered = {k.lower(): v for k, v in payload.items()}
 
     throttle_value = normalize(
-        _first_match(lowered, ("throttle", "z", "speed"))
+        _first_match(lowered, ("throttle", "y", "speed"))
     )
     roll_value = normalize(
         _first_match(lowered, ("roll", "altitude", "x"))
     )
     pitch_value = normalize(
-        _first_match(lowered, ("pitch", "y", "elevator", "rx"))
+        _first_match(lowered, ("pitch", "z", "elevator"))
     )
     yaw_value = normalize(
-        _first_match(lowered, ("yaw", "rz", "ry", "rudder"))
+        _first_match(lowered, ("yaw", "rx", "rz", "ry", "rudder"))
     )
 
     axes: Dict[str, Optional[int]] = {
@@ -237,10 +240,14 @@ def main(argv: list[str] | None = None) -> None:
 
             try:
                 j.set_axis(pyvjoy.HID_USAGE_X, axes["roll"])
-                j.set_axis(pyvjoy.HID_USAGE_Y, axes["pitch"])
-                j.set_axis(pyvjoy.HID_USAGE_Z, axes["throttle"])
-                usage_rz = getattr(pyvjoy, "HID_USAGE_RZ", pyvjoy.HID_USAGE_RX)
-                j.set_axis(usage_rz, axes["yaw"])
+                j.set_axis(pyvjoy.HID_USAGE_Y, axes["throttle"])
+                j.set_axis(pyvjoy.HID_USAGE_Z, axes["pitch"])
+                usage_rx = getattr(
+                    pyvjoy,
+                    "HID_USAGE_RX",
+                    getattr(pyvjoy, "HID_USAGE_RZ", pyvjoy.HID_USAGE_Y),
+                )
+                j.set_axis(usage_rx, axes["yaw"])
             except pyvjoy.vJoyException as exc:  # type: ignore[attr-defined]
                 print(f"[ERROR] vJoy update failed: {exc}")
                 time.sleep(0.5)
@@ -255,8 +262,8 @@ def main(argv: list[str] | None = None) -> None:
             if elapsed >= 1.0:
                 rate = packet_counter / max(elapsed, 1e-9)
                 print(
-                    f"[INFO] {rate:5.1f} pkt/s | Roll={axes['roll']:5d} "
-                    f"Pitch={axes['pitch']:5d} Yaw={axes['yaw']:5d} Throttle={axes['throttle']:5d}"
+                    f"[INFO] {rate:5.1f} pkt/s | Throttle={axes['throttle']:5d} "
+                    f"Roll={axes['roll']:5d} Pitch={axes['pitch']:5d} Yaw={axes['yaw']:5d}"
                 )
                 packet_counter = 0
                 last_report_time = now

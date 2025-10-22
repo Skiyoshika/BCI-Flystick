@@ -95,14 +95,34 @@ class TelemetryReceiver(threading.Thread):
                 continue
 
             parsed: Dict[str, float | str] = {}
-            for key in ("yaw", "altitude", "pitch", "throttle", "speed"):
-                if key in payload:
-                    try:
-                        parsed[key] = float(payload[key])
-                    except (TypeError, ValueError):
-                        continue
-            if "throttle" not in parsed and "speed" in parsed:
-                parsed["throttle"] = parsed["speed"] * 2.0 - 1.0
+
+            def _try_parse(*names: str) -> Optional[float]:
+                for name in names:
+                    if name in payload:
+                        try:
+                            return float(payload[name])
+                        except (TypeError, ValueError):
+                            continue
+                return None
+
+            throttle = _try_parse("throttle")
+            if throttle is None and "speed" in payload:
+                try:
+                    throttle = float(payload["speed"]) * 2.0 - 1.0
+                except (TypeError, ValueError):
+                    throttle = None
+            roll = _try_parse("roll", "altitude")
+            pitch = _try_parse("pitch")
+            yaw = _try_parse("yaw")
+
+            if throttle is not None:
+                parsed["throttle"] = throttle
+            if roll is not None:
+                parsed["roll"] = roll
+            if pitch is not None:
+                parsed["pitch"] = pitch
+            if yaw is not None:
+                parsed["yaw"] = yaw
 
             last_packet = time.time()
             self._queue.put(TelemetrySample(timestamp=last_packet, payload=parsed))
@@ -137,19 +157,34 @@ class TelemetryApp:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
-        axes = ["Yaw", "Altitude", "Pitch", "Throttle"]
+        axes = [
+            ("throttle", "Throttle / 油门"),
+            ("roll", "Roll / 横滚"),
+            ("pitch", "Pitch / 俯仰"),
+            ("yaw", "Yaw / 偏航"),
+        ]
         self.progress_vars: Dict[str, tk.DoubleVar] = {}
         self.value_labels: Dict[str, tk.StringVar] = {}
 
-        for idx, label in enumerate(axes):
-            ttk.Label(container, text=label, width=12).grid(row=idx, column=0, sticky="w", padx=(0, 8), pady=4)
+        for idx, (axis_key, label) in enumerate(axes):
+            ttk.Label(container, text=label, width=18).grid(
+                row=idx, column=0, sticky="w", padx=(0, 8), pady=4
+            )
             var = tk.DoubleVar(value=50.0)
-            self.progress_vars[label.lower()] = var
-            progress = ttk.Progressbar(container, orient="horizontal", length=280, maximum=100.0, variable=var)
+            self.progress_vars[axis_key] = var
+            progress = ttk.Progressbar(
+                container,
+                orient="horizontal",
+                length=280,
+                maximum=100.0,
+                variable=var,
+            )
             progress.grid(row=idx, column=1, sticky="ew", pady=4)
             value_var = tk.StringVar(value="+0.00")
-            self.value_labels[label.lower()] = value_var
-            ttk.Label(container, textvariable=value_var, width=8, anchor="e").grid(row=idx, column=2, padx=(8, 0))
+            self.value_labels[axis_key] = value_var
+            ttk.Label(container, textvariable=value_var, width=8, anchor="e").grid(
+                row=idx, column=2, padx=(8, 0)
+            )
 
         self.status_label = ttk.Label(container, text="", anchor="w")
         self.status_label.grid(row=len(axes), column=0, columnspan=3, sticky="ew", pady=(12, 0))
@@ -176,7 +211,7 @@ class TelemetryApp:
             self.status_var.set(sample.payload["__text__"])
             return
 
-        for axis in ("yaw", "altitude", "pitch", "throttle"):
+        for axis in ("throttle", "roll", "pitch", "yaw"):
             value = sample.payload.get(axis)
             if value is None:
                 continue
