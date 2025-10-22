@@ -148,7 +148,7 @@ The refreshed wizard first asks whether you want to start in **test mode** (simu
 | Mode | What happens | When to use |
 |------|---------------|-------------|
 | **Test mode** | Generates a mock calibration profile and launches `python.mock_command_gui` as the only UDP publisher so you can trigger each brainwave action via keyboard buttons while observing the FPV joystick response. | First-time exploration, demoing without hardware, sanity-checking downstream simulators. |
-| **First-time calibration** | Guides you through recording eight actions (accelerate/decelerate, yaw left/right, climb/descend, pitch up/down) using your real OpenBCI headset, storing the durations and polarity preferences in a calibration JSON. The runtime uses these axis signs to map live EEG features into joystick commands without extra key presses. | Preparing a user-specific profile for regular gameplay/simulation sessions. |
+| **First-time calibration** | Guides you through recording eight actions (accelerate/decelerate, yaw left/right, roll left/right, pitch up/down) using your real OpenBCI headset, storing the durations and polarity preferences in a calibration JSON. The runtime uses these axis signs to map live EEG features into joystick commands without extra key presses. | Preparing a user-specific profile for regular gameplay/simulation sessions. |
 
 Once a calibration exists, you can skip the wizard and launch `python -m python.main` directly. The launcher remembers the most recent profile but you can always pick a different one with `--config`.
 

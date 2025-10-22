@@ -67,14 +67,14 @@
       }
     },
     {
-      "name": "climb",
-      "label": "Climb / 想象抬升机身",
-      "axis": "altitude",
-      "direction": 1.0,
+      "name": "roll_left",
+      "label": "Roll Left / 想象左侧横滚",
+      "axis": "roll",
+      "direction": -1.0,
       "duration": 3.0,
       "binding": "Q",
       "imagery": {
-        "notes": "Bilateral hand extension imagery evoking central ERD.",
+        "notes": "Leftward bank imagery driving contralateral μ ERD.",
         "peak_microvolts": {
           "C3": -17.3,
           "C4": -16.4
@@ -82,14 +82,14 @@
       }
     },
     {
-      "name": "descend",
-      "label": "Descend / 想象下压机身",
-      "axis": "altitude",
-      "direction": -1.0,
+      "name": "roll_right",
+      "label": "Roll Right / 想象右侧横滚",
+      "axis": "roll",
+      "direction": 1.0,
       "duration": 3.1,
       "binding": "E",
       "imagery": {
-        "notes": "Hand flexion imagery with beta rebound and occipital alpha.",
+        "notes": "Rightward bank imagery sustaining bilateral beta rebound.",
         "peak_microvolts": {
           "C3": 11.8,
           "C4": 12.5
@@ -129,8 +129,9 @@
   ],
   "axis_signs": {
     "yaw": 1.0,
-    "altitude": 1.0,
+    "roll": 1.0,
     "pitch": 1.0,
-    "throttle": 1.0
+    "throttle": 1.0,
+    "altitude": 1.0
   }
 }
