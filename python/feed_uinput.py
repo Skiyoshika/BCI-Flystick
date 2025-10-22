@@ -76,9 +76,9 @@ def main(argv: list[str] | None = None) -> None:
                     if throttle is None:
                         throttle = 2 * float(m.get("speed", 0.0)) - 1.0
                     pitch = float(m.get("pitch", 0.0))
-                    dev.emit(uinput.ABS_X, m11(m["yaw"]), syn=False)
-                    dev.emit(uinput.ABS_Y, m11(m["altitude"]), syn=False)
-                    dev.emit(uinput.ABS_Z, m11(throttle), syn=False)
+                    dev.emit(uinput.ABS_X, m11(throttle), syn=False)
+                    dev.emit(uinput.ABS_Y, m11(m["yaw"]), syn=False)
+                    dev.emit(uinput.ABS_Z, m11(m["altitude"]), syn=False)
                     dev.emit(uinput.ABS_RX, m11(pitch), syn=True)
                 except json.JSONDecodeError:
                     continue
