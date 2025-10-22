@@ -27,6 +27,7 @@ def test_extract_axes_standard_payload() -> None:
     }
     axes = _extract_axes(payload)
     assert axes["yaw"] == normalize(payload["yaw"])
+    assert axes["roll"] == normalize(payload["altitude"])
     assert axes["altitude"] == normalize(payload["altitude"])
     assert axes["throttle"] == normalize(payload["throttle"])
     assert axes["pitch"] == normalize(payload["pitch"])
@@ -35,16 +36,16 @@ def test_extract_axes_standard_payload() -> None:
 def test_extract_axes_with_aliases() -> None:
     payload = {
         "X": 1.0,
-        "y": -1.0,
         "Z": 0.25,
         "RX": 0.75,
+        "RZ": -0.5,
         "speed": 0.6,
     }
     axes = _extract_axes(payload)
-    assert axes["yaw"] == normalize(1.0)
-    assert axes["altitude"] == normalize(-1.0)
-    assert axes["throttle"] == normalize(0.25)
+    assert axes["roll"] == normalize(1.0)
     assert axes["pitch"] == normalize(0.75)
+    assert axes["throttle"] == normalize(0.25)
+    assert axes["yaw"] == normalize(-0.5)
 
 
 def test_extract_axes_speed_fallback() -> None:
@@ -54,12 +55,12 @@ def test_extract_axes_speed_fallback() -> None:
 
 
 def test_fill_missing_axes_defaults_to_neutral() -> None:
-    neutral = {axis: normalize(0.0) for axis in ("yaw", "altitude", "throttle", "pitch")}
+    neutral = {axis: normalize(0.0) for axis in ("throttle", "roll", "pitch", "yaw")}
     last_known = dict(neutral)
 
     update = {
         "yaw": normalize(0.25),
-        "altitude": None,
+        "roll": None,
         "throttle": normalize(-1.0),
         "pitch": None,
     }
@@ -67,13 +68,13 @@ def test_fill_missing_axes_defaults_to_neutral() -> None:
     filled, missing = _fill_missing_axes(update, last_known, neutral)
 
     assert filled["yaw"] == normalize(0.25)
-    assert filled["altitude"] == neutral["altitude"]
+    assert filled["roll"] == neutral["roll"]
     assert filled["throttle"] == normalize(-1.0)
     assert filled["pitch"] == neutral["pitch"]
-    assert missing == ["altitude", "pitch"]
+    assert missing == ["roll", "pitch"]
     # Ensure last_known was updated for axes with new readings and fallback
     assert last_known["yaw"] == normalize(0.25)
-    assert last_known["altitude"] == neutral["altitude"]
+    assert last_known["roll"] == neutral["roll"]
 
 
 def test_uinput_mappings() -> None:

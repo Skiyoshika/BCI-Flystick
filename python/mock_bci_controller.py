@@ -72,6 +72,7 @@ while True:
 
     msg = {
         "yaw": round(yaw, 4),
+        "roll": round(alt, 4),
         "altitude": round(alt, 4),
         "pitch": round(pitch, 4),
         "throttle": round(thr, 4),
