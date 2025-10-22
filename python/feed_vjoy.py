@@ -7,7 +7,7 @@ import socket
 import sys
 import time
 from collections.abc import Mapping
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 try:
     import pyvjoy  # type: ignore
@@ -104,6 +104,48 @@ def _extract_axes(payload: Mapping[str, Any]) -> Dict[str, Optional[int]]:
     }
 
 
+def _fill_missing_axes(
+    axes: Mapping[str, Optional[int]],
+    last_known: Dict[str, int],
+    fallback: Mapping[str, int],
+) -> Tuple[Dict[str, int], list[str]]:
+    """Replace missing axis readings with the last known values.
+
+    Parameters
+    ----------
+    axes:
+        Newly parsed axis values, where ``None`` indicates the payload did not
+        provide an updated reading for that axis.
+    last_known:
+        Mutable mapping of the most recent values pushed to vJoy.  The mapping
+        is updated in-place so subsequent payloads can continue from the latest
+        readings.
+    fallback:
+        Default values used whenever an axis reading is missing.  Typically
+        this will be the neutral joystick position for each axis so that stale
+        values do not linger when telemetry drops individual fields.
+
+    Returns
+    -------
+    Tuple[Dict[str, int], list[str]]
+        A tuple containing the axis dictionary with missing entries replaced
+        as well as the list of axis names that required a fallback.  The list
+        is ordered according to the iteration order of ``last_known`` so the
+        logging remains stable for users diagnosing telemetry issues.
+    """
+
+    filled: Dict[str, int] = {}
+    missing: list[str] = []
+    for name, previous in list(last_known.items()):
+        value = axes.get(name)
+        if value is None:
+            value = fallback.get(name, previous)
+            missing.append(name)
+        last_known[name] = value
+        filled[name] = value
+    return filled, missing
+
+
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     _require_pyvjoy()
@@ -145,6 +187,9 @@ def main(argv: list[str] | None = None) -> None:
     packet_counter = 0
     last_report_time = time.time()
 
+    neutral_axes = {axis: normalize(0.0) for axis in ("yaw", "altitude", "throttle", "pitch")}
+    current_axes = dict(neutral_axes)
+
     try:
         while True:
             try:
@@ -167,10 +212,13 @@ def main(argv: list[str] | None = None) -> None:
                 continue
 
             axes = _extract_axes(payload)
-            missing = [name for name, value in axes.items() if value is None]
+            axes, missing = _fill_missing_axes(axes, current_axes, neutral_axes)
             if missing:
-                print(f"[WARN] Missing axis data for: {', '.join(missing)}")
-                continue
+                print(
+                    "[WARN] Missing axis data for: "
+                    + ", ".join(missing)
+                    + " (using last known values)"
+                )
 
             try:
                 j.set_axis(pyvjoy.HID_USAGE_X, axes["yaw"])
