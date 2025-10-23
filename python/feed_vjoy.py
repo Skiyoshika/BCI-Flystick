@@ -241,6 +241,25 @@ def main(argv: list[str] | None = None) -> None:
             try:
                 j.set_axis(pyvjoy.HID_USAGE_X, axes["roll"])
                 j.set_axis(pyvjoy.HID_USAGE_Y, axes["throttle"])
+                # Mirror the throttle to an additional slider axis when
+                # available.  Uncrashed prefers the first slider for throttle,
+                # while other simulators still read the traditional Y axis.
+                # Updating both keeps backwards compatibility with earlier
+                # profiles.
+                slider_usage = getattr(
+                    pyvjoy,
+                    "HID_USAGE_SL0",
+                    getattr(pyvjoy, "HID_USAGE_SLIDER", None),
+                )
+                if slider_usage is not None:
+                    try:
+                        j.set_axis(slider_usage, axes["throttle"])
+                    except AttributeError:
+                        pass
+                    except Exception as exc:
+                        vjoy_error = getattr(pyvjoy, "vJoyException", None)
+                        if vjoy_error is None or not isinstance(exc, vjoy_error):
+                            raise
                 j.set_axis(pyvjoy.HID_USAGE_Z, axes["pitch"])
                 usage_rx = getattr(
                     pyvjoy,
